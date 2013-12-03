@@ -6,7 +6,8 @@ message("configure: http-cpp library")
 if(MSVC)
 	set(CURL_HOME ${HTTP_CPP_3RD_PARTY_DIR}/curl)
 	set(CURL_INCLUDE_DIRS "${CURL_HOME}/include")
-	set(CURL_LIBRARIES "${CURL_HOME}/lib/libcurl_a.lib")
+	set(CURL_LIBRARIES_DEBUG "${CURL_HOME}/lib/libcurl_a_debug.lib")
+	set(CURL_LIBRARIES_RELEASE "${CURL_HOME}/lib/libcurl_a.lib")
 	add_definitions(-DCURL_STATICLIB)
 	message("-- using curl lib: ${CURL_HOME}")
 else(MSVC)
@@ -28,7 +29,15 @@ add_library(
 	status.hpp
 )
 
-target_link_libraries(
-    http-cpp
-    ${CURL_LIBRARIES}
-)
+if(MSVC)
+	target_link_libraries(
+		http-cpp
+		debug   	${CURL_LIBRARIES_DEBUG}
+		optimized	${CURL_LIBRARIES_RELEASE}
+	)
+else(MSVC)
+	target_link_libraries(
+		http-cpp
+		${CURL_LIBRARIES}
+	)
+endif(MSVC)
