@@ -95,8 +95,8 @@ namespace http {
         HTTP_599_NETWORK_CONNECT_TIMEOUT_ERROR          = 599
     };
 
-    HTTP_API bool is_known(http::status s);
+    HTTP_API bool status_is_known(http::status s);
 
-    HTTP_API const char* to_string(http::status s);
+    HTTP_API const char* status_to_string(http::status s);
 
 } // namespace http

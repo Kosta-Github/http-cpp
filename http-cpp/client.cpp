@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 
 #include <atomic>
+#include <cassert>
 #include <thread>
 
 #undef min
@@ -13,7 +14,7 @@
 
 
 
-
+/*
 static std::string escape_url(
     CURL* const curl,
     const char* const url
@@ -25,6 +26,7 @@ static std::string escape_url(
     curl_free(escaped);
     return result;
 }
+*/
 
 namespace {
 
@@ -40,12 +42,12 @@ namespace {
 
             curl_global_init(CURL_GLOBAL_ALL);
 
-            const_cast<CURLM*>(global_multi) = curl_multi_init();
+            const_cast<CURLM*&>(global_multi) = curl_multi_init();
 
             // initialize a global curl handle with some default values
             // all other curl handles will clone from this to inherit
             // the same defaults
-            const_cast<CURL*>(global_curl) = curl_easy_init();
+            const_cast<CURL*&>(global_curl) = curl_easy_init();
 //            curl_easy_setopt(global_curl, CURLOPT_VERBOSE, 1);
             curl_easy_setopt(global_curl, CURLOPT_AUTOREFERER, 1);
             curl_easy_setopt(global_curl, CURLOPT_ACCEPT_ENCODING, ""); // accept all supported encodings
@@ -105,8 +107,8 @@ namespace {
         }
 
     public:
-        CURL*  const global_curl;
         CURLM* const global_multi;
+        CURL*  const global_curl;
 
         mutable std::mutex mutex;
         std::map<CURL*, curl_wrap*> active_handles;
@@ -131,8 +133,10 @@ namespace {
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, this);
             curl_easy_setopt(curl, CURLOPT_READFUNCTION, write_function_stub);
             curl_easy_setopt(curl, CURLOPT_READDATA, this);
-            curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_function_stub);
-            curl_easy_setopt(curl, CURLOPT_XFERINFODATA, this);
+            // curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_function_stub);
+            // curl_easy_setopt(curl, CURLOPT_XFERINFODATA, this);
+            curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION, progress_function_stub);
+            curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, this);
             curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
             curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_function_stub);
             curl_easy_setopt(curl, CURLOPT_HEADERDATA, this);
@@ -163,9 +167,13 @@ namespace {
         }
 
         virtual bool progress_function(size_t downTotal, size_t downCur, size_t upTotal, size_t upCur) = 0;
-        static  int  progress_function_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+        // static  int  progress_function_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+        //    auto wrap = static_cast<curl_wrap*>(clientp); assert(wrap);
+        //    return (wrap->progress_function(dltotal, dlnow, ultotal, ulnow) ? 0 : 1);
+        // }
+        static  int  progress_function_stub(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
             auto wrap = static_cast<curl_wrap*>(clientp); assert(wrap);
-            return (wrap->progress_function(dltotal, dlnow, ultotal, ulnow) ? 0 : 1);
+            return (wrap->progress_function(static_cast<size_t>(dltotal), static_cast<size_t>(dlnow), static_cast<size_t>(ultotal), static_cast<size_t>(ulnow)) ? 0 : 1);
         }
 
         virtual void  header_function(const char* ptr, size_t bytes) = 0;
@@ -196,7 +204,7 @@ namespace {
                         auto it = active_handles.find(handle);
                         assert(it != active_handles.end());
 
-                        http::error_code error = ((msg->data.result == CURLE_OK) ? http::HTTP_REQUEST_OK : http::HTTP_REQUEST_ERROR);
+                        http::error_code error = msg->data.result;
 
                         long status = http::HTTP_000_UNKNOWN;
                         curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
@@ -235,7 +243,7 @@ struct http::response::impl :
         assert(master);
         assert(curl);
 
-        data_collected.error_code   = http::HTTP_REQUEST_ERROR;
+        data_collected.error_code   = CURLE_OK;
         data_collected.status       = http::HTTP_000_UNKNOWN;
     }
 

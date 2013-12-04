@@ -1,6 +1,6 @@
 #include "operation.hpp"
 
-bool http::is_known(http::operation op) {
+bool http::operation_is_known(http::operation op) {
     switch(op) {
 #define HTTP_OPERATION_CASE(X) case X: return true
         HTTP_OPERATION_CASE(HTTP_GET);
@@ -13,7 +13,7 @@ bool http::is_known(http::operation op) {
     }
 }
 
-const char* http::to_string(http::operation op) {
+const char* http::operation_to_string(http::operation op) {
     switch(op) {
 #define HTTP_OPERATION_CASE(X) case X: return #X
         HTTP_OPERATION_CASE(HTTP_GET);

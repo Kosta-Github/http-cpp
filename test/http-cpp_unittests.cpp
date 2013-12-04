@@ -4,8 +4,8 @@
 
 static void print_response_data(const http::response::info& data) {
     std::cout << "result:" << std::endl;
-    std::cout << "\terror_code: " << data.error_code << std::endl;
-    std::cout << "\tstatus:     " << data.status << "\t" << http::to_string(data.status) << std::endl;
+    std::cout << "\terror_code: " << data.error_code << "\t" << http::error_code_to_string(data.error_code) << std::endl;
+    std::cout << "\tstatus:     " << data.status << "\t" << http::status_to_string(data.status) << std::endl;
     std::cout << "\theaders: "    << std::endl;
     for(auto&& i : data.headers) {
         std::cout << "\t\t" << i.first << ": " << i.second << std::endl;

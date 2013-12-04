@@ -22,6 +22,8 @@ add_library(
 	http-cpp SHARED
 	client.cpp
 	client.hpp
+    error_code.cpp
+    error_code.hpp
 	http-cpp.hpp
 	operation.cpp
 	operation.hpp

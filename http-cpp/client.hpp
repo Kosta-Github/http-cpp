@@ -1,6 +1,7 @@
 #pragma once
 
 #include "http-cpp.hpp"
+#include "error_code.hpp"
 #include "operation.hpp"
 #include "status.hpp"
 
@@ -19,17 +20,9 @@ namespace http {
     typedef std::vector<char> buffer;
     typedef std::map<std::string, std::string> headers;
 
-
-    enum error_code {
-        HTTP_REQUEST_OK,
-        HTTP_REQUEST_CANCELED,
-        HTTP_REQUEST_ERROR
-    };
-
     struct HTTP_API response {
         struct info {
             http::error_code    error_code;
-            std::string         error_string;
             http::status        status;
             http::headers       headers;
             http::buffer        body;
