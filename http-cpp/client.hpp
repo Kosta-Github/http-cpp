@@ -19,13 +19,26 @@ namespace http {
     typedef std::vector<char> buffer;
     typedef std::map<std::string, std::string> headers;
 
+
+    enum error_code {
+        HTTP_REQUEST_OK,
+        HTTP_REQUEST_CANCELED,
+        HTTP_REQUEST_ERROR
+    };
+
     struct HTTP_API response {
-        std::string const&          source() const;
-        std::string const&          target() const;
-        std::future<http::status>&  status();
-        std::future<http::headers>& headers();
-        std::future<http::buffer>&  body();
-        void                        cancel();
+        struct info {
+            http::error_code    error_code;
+            std::string         error_string;
+            http::status        status;
+            http::headers       headers;
+            http::buffer        body;
+        };
+        std::future<info>& data();
+
+        void progress(size_t& outDownCur, size_t& outDownTotal, size_t& outUpCur, size_t& outUpTotal);
+
+        void cancel();
 
     public:
         response();

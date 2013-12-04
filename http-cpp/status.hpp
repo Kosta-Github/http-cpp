@@ -6,6 +6,8 @@ namespace http {
 
     // see: http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
     enum status {
+        HTTP_000_UNKNOWN                                = 000,
+
         HTTP_100_CONTINUE                               = 100,
         HTTP_101_SWITCHING_PROTOCOLS                    = 101,
         HTTP_102_PROCESSING                             = 102,
@@ -14,7 +16,7 @@ namespace http {
         HTTP_201_CREATED                                = 201,
         HTTP_202_ACCEPTED                               = 202,
         HTTP_203_NON_AUTHORITATIVE_INFORMATION          = 203,
-        HTTP_204_NO_CONTEN                              = 204,
+        HTTP_204_NO_CONTENT                             = 204,
         HTTP_205_RESET_CONTENT                          = 205,
         HTTP_206_PARTIAL_CONTENT                        = 206,
         HTTP_207_MULTI_STATUS                           = 207,
