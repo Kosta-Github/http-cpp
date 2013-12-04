@@ -35,6 +35,7 @@ namespace {
     struct global_data {
         global_data() :
             global_multi(nullptr),
+            global_share(nullptr),
             global_curl(nullptr),
             worker_shutdown(false)
         {
@@ -43,6 +44,14 @@ namespace {
             curl_global_init(CURL_GLOBAL_ALL);
 
             const_cast<CURLM*&>(global_multi) = curl_multi_init();
+
+            const_cast<CURLSH*&>(global_share) = curl_share_init();
+            curl_share_setopt(global_share, CURLSHOPT_LOCKFUNC, lock_function_stub);
+            curl_share_setopt(global_share, CURLSHOPT_UNLOCKFUNC, unlock_function_stub);
+            curl_share_setopt(global_share, CURLSHOPT_USERDATA, this);
+            curl_share_setopt(global_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+            curl_share_setopt(global_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+            curl_share_setopt(global_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
 
             // initialize a global curl handle with some default values
             // all other curl handles will clone from this to inherit
@@ -68,6 +77,7 @@ namespace {
             assert(active_handles.empty());
 
             if(global_curl)  { curl_easy_cleanup(global_curl);   }
+            if(global_share) { curl_share_cleanup(global_share); }
 #if defined(WIN32) && defined(NDEBUG)
             // this cleanup call seems to be defect on Windows in debug mode => ignore it for now
             if(global_multi) { curl_multi_cleanup(global_multi); }
@@ -76,6 +86,7 @@ namespace {
             curl_global_cleanup();
         }
 
+    public:
         void add_handle(CURL* handle, curl_wrap* wrap) {
             assert(handle);
             assert(wrap);
@@ -84,6 +95,7 @@ namespace {
             assert(active_handles[handle] == nullptr);
             active_handles[handle] = wrap;
 
+            curl_easy_setopt(handle, CURLOPT_SHARE, global_share);
             curl_multi_add_handle(global_multi, handle);
         }
 
@@ -94,9 +106,22 @@ namespace {
             std::lock_guard<std::mutex> lock(mutex);
             if(active_handles.erase(handle)) {
                 curl_multi_remove_handle(global_multi, handle);
+                curl_easy_setopt(handle, CURLOPT_SHARE, nullptr);
             }
         }
 
+    public:
+        static void lock_function_stub(CURL* handle, curl_lock_data data, curl_lock_access access, void* userptr) {
+            auto wrap = static_cast<global_data*>(userptr); assert(wrap);
+            wrap->mutex_share.lock();
+        }
+
+        static void unlock_function_stub(CURL* handle, curl_lock_data data, void* userptr) {
+            auto wrap = static_cast<global_data*>(userptr); assert(wrap);
+            wrap->mutex_share.unlock();
+        }
+
+    public:
         void loop();
 
         bool loop_stop() {
@@ -107,10 +132,12 @@ namespace {
         }
 
     public:
-        CURLM* const global_multi;
-        CURL*  const global_curl;
+        CURLM*  const global_multi;
+        CURLSH* const global_share;
+        CURL*   const global_curl;
 
         mutable std::mutex mutex;
+        mutable std::mutex mutex_share;
         std::map<CURL*, curl_wrap*> active_handles;
 
         std::thread         worker;
