@@ -33,7 +33,7 @@ namespace http {
     private:
         friend struct client;
         struct impl;
-        impl* m_impl;
+        std::shared_ptr<impl> m_impl;
     };
 
 } // namespace http

@@ -14,7 +14,16 @@ namespace http {
             std::string data_content_type = "application/octet-stream"
         );
 
-        void request(
+        void request_callback(
+            std::function<void(http::response response)> receive_cb,
+            http::request req,
+            http::operation op = http::HTTP_GET,
+            http::headers headers = http::headers(),
+            http::buffer send_data = http::buffer(),
+            std::string data_content_type = "application/octet-stream"
+        );
+        
+        void request_stream(
             std::function<bool(http::message data, http::progress_info progress)> receive_cb,
             http::request req,
             http::operation op = http::HTTP_GET,
@@ -34,7 +43,6 @@ namespace http {
         client& operator=(client const&); // = delete
 
     private:
-        friend struct response;
         struct impl;
         impl* m_impl;
     };

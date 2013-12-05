@@ -3,6 +3,8 @@
 
 #include "impl/curl_easy_wrap.hpp"
 #include "impl/curl_global_init_wrap.hpp"
+#include "impl/curl_multi_wrap.hpp"
+#include "impl/curl_share_wrap.hpp"
 
 #include <curl/curl.h>
 
@@ -14,191 +16,27 @@
 
 namespace {
 
-    struct curl_share_wrap {
-        curl_share_wrap() :
-            m_share(curl_share_init())
-        {
-            assert(m_share);
-            curl_share_setopt(m_share, CURLSHOPT_LOCKFUNC,   lock_function_stub);
-            curl_share_setopt(m_share, CURLSHOPT_UNLOCKFUNC, unlock_function_stub);
-            curl_share_setopt(m_share, CURLSHOPT_USERDATA,   this);
-            curl_share_setopt(m_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
-            curl_share_setopt(m_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
-            curl_share_setopt(m_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
-        }
-
-        ~curl_share_wrap() {
-            assert(m_share);
-            curl_share_cleanup(m_share);
-        }
-
-        void add(CURL* handle) {
-            assert(handle);
-            curl_easy_setopt(handle, CURLOPT_SHARE, m_share);
-        }
-
-        void remove(CURL* handle) {
-            assert(handle);
-            curl_easy_setopt(handle, CURLOPT_SHARE, nullptr);
-        }
-
-    private:
-        static void lock_function_stub(CURL* handle, curl_lock_data data, curl_lock_access access, void* userptr) {
-            auto wrap = static_cast<curl_share_wrap*>(userptr); assert(wrap);
-            wrap->m_mutex.lock();
-        }
-
-        static void unlock_function_stub(CURL* handle, curl_lock_data data, void* userptr) {
-            auto wrap = static_cast<curl_share_wrap*>(userptr); assert(wrap);
-            wrap->m_mutex.unlock();
-        }
-
-        mutable std::mutex m_mutex;
-        CURLSH* const      m_share;
-    };
-
-    struct curl_multi_wrap {
-        curl_multi_wrap() :
-            m_multi(curl_multi_init()),
-            m_worker_shutdown(false)
-        {
-            assert(m_multi);
-
-            // start the worker thread
-            m_worker = std::thread([this]() { loop(); });
-        }
-
-        ~curl_multi_wrap() {
-            m_worker_shutdown = true;
-            m_worker.join();
-
-            assert(m_active_handles.empty());
-
-            assert(m_multi);
-#if defined(WIN32) && defined(NDEBUG)
-            // this cleanup call seems to be defect on Windows in debug mode => ignore it for now
-            if(m_multi) { curl_multi_cleanup(m_multi); }
-#endif // defined(WIN32) && defined(NDEBUG)
-        }
-
-    public:
-        void add(http::impl::curl_easy_wrap* wrap) {
-            assert(wrap);
-
-            auto handle = wrap->handle;
-            assert(handle);
-
-            std::lock_guard<std::mutex> lock(m_mutex);
-            assert(m_active_handles[handle] == nullptr);
-            m_active_handles[handle] = wrap;
-
-            curl_multi_add_handle(m_multi, handle);
-        }
-
-        void remove(http::impl::curl_easy_wrap* wrap) {
-            assert(wrap);
-
-            auto handle = wrap->handle;
-            assert(handle);
-
-            std::lock_guard<std::mutex> lock(m_mutex);
-            assert(!m_active_handles[handle] || (m_active_handles[handle] == wrap));
-            if(m_active_handles.erase(handle)) {
-                curl_multi_remove_handle(m_multi, handle);
-            }
-        }
-
-    private:
-        void loop() {
-            std::vector<std::function<void()>> update_handles;
-            while(!loop_stop()) {
-                update_handles.clear();
-                int running_handles = 0;
-                int mesages_left = 0;
-                auto wait_time_ms = 10;
-
-                {   // perform curl multi operations within the locked mutex
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    auto perform_res = curl_multi_perform(m_multi, &running_handles);
-
-                    // check if we should call perform again immediately
-                    if(perform_res == CURLM_CALL_MULTI_PERFORM) {
-                        wait_time_ms = 0;
-                    }
-
-                    // retrieve the list of handles to update their state
-                    while(auto msg = curl_multi_info_read(m_multi, &mesages_left)) {
-                        auto handle = msg->easy_handle;
-
-                        switch(msg->msg) {
-                            case CURLMSG_DONE: {
-                                auto it = m_active_handles.find(handle);
-                                assert(it != m_active_handles.end());
-
-                                auto wrap = it->second;
-                                auto error = msg->data.result;
-
-                                long status = http::HTTP_000_UNKNOWN;
-                                curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
-
-                                update_handles.emplace_back([=]() { wrap->finish(error, status); });
-                                break;
-                            }
-                            default: {
-                                assert(!"should not be reached");
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // update the done handles outside of the mutex
-                for(auto&& i : update_handles) { i(); }
-                
-                if(wait_time_ms > 0) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(wait_time_ms));
-                }
-            }
-        }
-
-        bool loop_stop() {
-            if(!m_worker_shutdown) { return false; }
-
-            std::lock_guard<std::mutex> lock(m_mutex);
-            return m_active_handles.empty();
-        }
-
-    private:
-        mutable std::mutex m_mutex;
-        CURLM* const m_multi;
-
-        std::map<CURL*, http::impl::curl_easy_wrap*> m_active_handles;
-
-        std::thread         m_worker;
-        std::atomic<bool>   m_worker_shutdown;
-    };
-    
     struct global_data {
         global_data() : m_dummy_handle(curl_easy_init()) { }
         ~global_data() { curl_easy_cleanup(m_dummy_handle); }
 
-        void add(http::impl::curl_easy_wrap* wrap) {
+        void add(std::shared_ptr<http::impl::curl_easy_wrap> wrap) {
             assert(wrap);
             m_share.add(wrap->handle);
             m_multi.add(wrap);
         }
 
-        void remove(http::impl::curl_easy_wrap* wrap) {
+        void remove(std::shared_ptr<http::impl::curl_easy_wrap> wrap) {
             assert(wrap);
             m_multi.remove(wrap);
             m_share.remove(wrap->handle);
         }
 
     public:
-        http::impl::curl_global_init_wrap m_init;
-        curl_share_wrap       m_share;
-        curl_multi_wrap       m_multi;
-        CURL* const           m_dummy_handle; // e.g., for escape()/unescape()
+        http::impl::curl_global_init_wrap   m_init;
+        http::impl::curl_share_wrap         m_share;
+        http::impl::curl_multi_wrap         m_multi;
+        CURL* const                         m_dummy_handle; // e.g., for escape()/unescape()
     };
 
     static global_data& global() {
@@ -208,185 +46,6 @@ namespace {
 
 } // namespace
 
-struct http::response::impl :
-    public http::impl::curl_easy_wrap
-{
-    impl(
-         http::operation op,
-         http::request req,
-         CURL* master =  nullptr
-    ) :
-        curl_easy_wrap(master),
-        data_future(data_promise.get_future()),
-        finished_future(finished_promise.get_future()),
-        m_op(op),
-        m_req(std::move(req)),
-        progressDownCur(0), progressDownTotal(0), speedDown(0),
-        progressUpCur(0),   progressUpTotal(0),   speedUp(0),
-        cancel(false),
-        send_progress(0)
-    {
-        data_collected.error_code   = CURLE_OK;
-        data_collected.status       = http::HTTP_000_UNKNOWN;
-
-        curl_easy_setopt(handle, CURLOPT_URL, m_req.c_str());
-        curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
-    }
-
-    virtual ~impl() {
-        finished_future.wait();
-        global().remove(this);
-    }
-
-    virtual void perform() {
-        global().add(this);
-    }
-
-    std::promise<http::message>  data_promise;
-    std::future<http::message>   data_future;
-    http::message                data_collected;
-
-    std::promise<void>  finished_promise;
-    std::future<void>   finished_future;
-
-    http::operation m_op;
-    http::request   m_req;
-
-    std::atomic<size_t> progressDownCur,    progressDownTotal,  speedDown;
-    std::atomic<size_t> progressUpCur,      progressUpTotal,    speedUp;
-
-    std::atomic<bool>   cancel;
-
-    virtual bool write(const char* ptr, size_t bytes) override {
-//        std::cout << this << ": write: " << ptr << " (" << bytes << " bytes): " << std::string(ptr, ptr + std::min(bytes, size_t(40))) << std::endl;
-        data_collected.body.insert(data_collected.body.end(), ptr, ptr + bytes);
-        return true;
-    }
-
-    virtual size_t read(char* ptr, size_t bytes) override {
-        auto send_bytes = std::min(bytes, send_buffer.size() - send_progress);
-        std::memcpy(ptr, send_buffer.data() + send_progress, send_bytes);
-        send_progress += send_bytes;
-        std::cout << this << ": read: " << ptr << " (" << bytes << " bytes; sending: " << send_bytes << "; remaining: " << (send_buffer.size() - send_progress) << ")" << std::endl;
-        return send_bytes;
-    }
-
-    virtual bool progress(
-        size_t downTotal, size_t downCur, size_t downSpeed,
-        size_t upTotal,   size_t upCur,   size_t upSpeed
-    ) override {
-//        std::cout << this << ": progress: down: " << downTotal << "/" << downCur << ", up: " << upTotal << "/" << upCur << std::endl;
-        progressDownCur = downCur;  progressDownTotal   = downTotal; speedDown = downSpeed;
-        progressUpCur   = upCur;    progressUpTotal     = upTotal;   speedUp   = upSpeed;
-
-        return !cancel;
-    }
-
-    virtual void header(const char* ptr, size_t bytes) override {
-        if(bytes < 2) { return; } // skip invalid data
-
-        // strip off "CRLF" at the end
-        if(ptr[bytes-1] == '\n') { --bytes; }
-        if(ptr[bytes-1] == '\r') { --bytes; }
-
-        // end of headers found
-        if(bytes == 0) { return; }
-
-//        std::cout << this << ": header: " << bytes << " bytes:\n" << std::string(ptr, ptr + bytes) << std::endl;
-        auto str = std::string(ptr, ptr + bytes);
-        auto pos = str.find(": ");
-        if(pos != str.npos) {
-            data_collected.headers[str.substr(0, pos)] = str.substr(pos + 2);
-        }
-    }
-
-    virtual void finish(CURLcode code, long status) override {
-        auto error = static_cast<http::error_code>(code);
-        if((error != http::HTTP_REQUEST_OK) && cancel) {
-            error = http::HTTP_REQUEST_CANCELED;
-        }
-
-        data_collected.error_code   = error;
-        data_collected.status       = static_cast<http::status>(status);
-        data_promise.set_value(std::move(data_collected));
-
-        finished_promise.set_value();
-    }
-
-    void request_get() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
-        perform();
-    }
-
-    void request_head() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
-        curl_easy_setopt(handle, CURLOPT_NOBODY, 1);
-        perform();
-    }
-
-    void request_delete() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
-        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-        perform();
-    }
-
-    void request_put(http::buffer send_body, std::string content_type) {
-        send_buffer = std::move(send_body);
-        send_progress = 0;
-
-        auto size = static_cast<curl_off_t>(send_buffer.size());
-
-        curl_easy_setopt(handle, CURLOPT_URL, m_req.c_str());
-        curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
-        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE, size);
-        perform();
-    }
-
-    http::buffer send_buffer;
-    size_t       send_progress;
-};
-
-http::response::response() : m_impl(nullptr) { }
-http::response::response(response&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
-http::response& http::response::operator=(response&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
-http::response::~response() { delete m_impl; }
-
-std::future<http::message>& http::response::data() { return m_impl->data_future; }
-http::operation http::response::operation() { return m_impl->m_op; }
-http::request http::response::request() { return m_impl->m_req; }
-http::progress_info http::response::progress() { return http::progress_info(m_impl->progressDownCur, m_impl->progressDownTotal, m_impl->speedDown, m_impl->progressUpCur, m_impl->progressUpTotal, m_impl->speedUp); }
-void http::response::cancel() { m_impl->cancel = true; }
-
-
-struct http::client::impl {
-};
-
-http::client::client() : m_impl(new impl()) { }
-http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
-http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
-http::client::~client() { delete m_impl; }
-    
-http::response http::client::request(
-    http::request req,
-    http::operation op,
-    http::headers headers,
-    http::buffer send_data,
-    std::string data_content_type
-) {
-    auto response = http::response();
-    response.m_impl = new http::response::impl(op, std::move(req));
-
-    switch(op) {
-        case http::HTTP_GET:    response.m_impl->request_get(); break;
-        case http::HTTP_HEAD:   response.m_impl->request_head(); break;
-        case http::HTTP_PUT:    response.m_impl->request_put(std::move(send_data), std::move(data_content_type)); break;
-        case http::HTTP_DELETE: response.m_impl->request_delete(); break;
-        case http::HTTP_POST:
-        default:                response.m_impl->finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
-    }
-
-    return response;
-}
 
 std::string http::escape(
     std::string s
@@ -413,4 +72,233 @@ std::string http::unescape(
     curl_free(unescaped);
     
     return s;
+}
+
+
+struct http::response::impl :
+    public http::impl::curl_easy_wrap,
+    public std::enable_shared_from_this<impl>
+{
+    impl(
+        http::request req,
+        http::operation op,
+        http::headers headers,
+        http::buffer send_data,
+        std::string data_content_type,
+        std::function<bool(http::message, http::progress_info)> receive_cb
+    ) :
+        curl_easy_wrap(),
+        data_future(data_promise.get_future()),
+        finished_future(finished_promise.get_future()),
+        m_request(std::move(req)),
+        m_operation(op),
+        m_send_headers(std::move(headers)),
+        m_send_data(std::move(send_data)),
+        m_send_data_content_type(std::move(data_content_type)),
+        m_send_progress(0),
+        m_receive_cb(std::move(receive_cb)),
+        progressDownCur(0), progressDownTotal(0), speedDown(0),
+        progressUpCur(0),   progressUpTotal(0),   speedUp(0),
+        cancel(false)
+    {
+        data_collected.error_code   = CURLE_OK;
+        data_collected.status       = http::HTTP_000_UNKNOWN;
+
+        curl_easy_setopt(handle, CURLOPT_URL, m_request.c_str());
+        curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
+    }
+
+    virtual ~impl() {
+        finished_future.wait();
+    }
+
+    std::promise<http::message>  data_promise;
+    std::future<http::message>   data_future;
+    http::message                data_collected;
+
+    std::promise<void>  finished_promise;
+    std::future<void>   finished_future;
+
+    http::request   m_request;
+    http::operation m_operation;
+    http::headers   m_send_headers;
+    http::buffer    m_send_data;
+    std::string     m_send_data_content_type;
+    size_t          m_send_progress;
+
+    std::function<bool(http::message, http::progress_info)> m_receive_cb;
+
+    std::atomic<size_t> progressDownCur,    progressDownTotal,  speedDown;
+    std::atomic<size_t> progressUpCur,      progressUpTotal,    speedUp;
+
+    std::atomic<bool>   cancel;
+
+    virtual bool write(const char* ptr, size_t bytes) override {
+//        std::cout << this << ": write: " << ptr << " (" << bytes << " bytes): " << std::string(ptr, ptr + std::min(bytes, size_t(40))) << std::endl;
+        data_collected.body.insert(data_collected.body.end(), ptr, ptr + bytes);
+
+        if(m_receive_cb) {
+            http::message msg(data_collected.error_code, data_collected.status, data_collected.headers, std::move(data_collected.body));
+            cancel = !m_receive_cb(std::move(msg), progress());
+        } else {
+        }
+
+        return true;
+    }
+
+    virtual size_t read(char* ptr, size_t bytes) override {
+        auto send_bytes = std::min(bytes, m_send_data.size() - m_send_progress);
+        std::memcpy(ptr, m_send_data.data() + m_send_progress, send_bytes);
+        m_send_progress += send_bytes;
+        std::cout << this << ": read: " << ptr << " (" << bytes << " bytes; sending: " << send_bytes << "; remaining: " << (m_send_data.size() - m_send_progress) << ")" << std::endl;
+        return send_bytes;
+    }
+
+    virtual bool progress(
+        size_t downTotal, size_t downCur, size_t downSpeed,
+        size_t upTotal,   size_t upCur,   size_t upSpeed
+    ) override {
+        progressDownCur = downCur;  progressDownTotal   = downTotal; speedDown = downSpeed;
+        progressUpCur   = upCur;    progressUpTotal     = upTotal;   speedUp   = upSpeed;
+
+        return !cancel;
+    }
+
+    http::progress_info progress() {
+        return http::progress_info(progressDownCur, progressDownTotal, speedDown, progressUpCur, progressUpTotal, speedUp);
+    }
+
+    virtual void header(const char* ptr, size_t bytes) override {
+        if(bytes < 2) { return; } // skip invalid data
+
+        // strip off "CRLF" at the end
+        if(ptr[bytes-1] == '\n') { --bytes; }
+        if(ptr[bytes-1] == '\r') { --bytes; }
+
+        // end of headers found
+        if(bytes == 0) { return; }
+
+//        std::cout << this << ": header: " << bytes << " bytes:\n" << std::string(ptr, ptr + bytes) << std::endl;
+        auto str = std::string(ptr, ptr + bytes);
+        auto pos = str.find(": ");
+        if(pos != str.npos) {
+            data_collected.headers[str.substr(0, pos)] = str.substr(pos + 2);
+        }
+    }
+
+    virtual void start() {
+        global().add(shared_from_this());
+    }
+
+    virtual void finish(CURLcode code, long status) override {
+        auto error = static_cast<http::error_code>(code);
+        if((error != http::HTTP_REQUEST_OK) && cancel) {
+            error = http::HTTP_REQUEST_CANCELED;
+        }
+
+        data_collected.error_code   = error;
+        data_collected.status       = static_cast<http::status>(status);
+
+        if(m_receive_cb) {
+            assert(data_collected.body.empty());
+            m_receive_cb(std::move(data_collected), progress());
+        } else {
+            data_promise.set_value(std::move(data_collected));
+        }
+
+        finished_promise.set_value();
+
+        global().remove(shared_from_this());
+    }
+
+    void request() {
+        switch(m_operation) {
+            case http::HTTP_GET:    request_get();      break;
+            case http::HTTP_HEAD:   request_head();     break;
+            case http::HTTP_PUT:    request_put();      break;
+            case http::HTTP_DELETE: request_delete();   break;
+            case http::HTTP_POST:
+            default:                finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
+        }
+    }
+
+    void request_get() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        start();
+    }
+
+    void request_head() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_NOBODY, 1);
+        start();
+    }
+
+    void request_delete() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+        start();
+    }
+
+    void request_put() {
+        auto size = static_cast<curl_off_t>(m_send_data.size());
+
+        curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
+        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE, size);
+        start();
+    }
+};
+
+http::response::response() : m_impl(nullptr) { }
+http::response::response(response&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
+http::response& http::response::operator=(response&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
+http::response::~response() { }
+
+std::future<http::message>& http::response::data() { return m_impl->data_future; }
+http::operation http::response::operation() { return m_impl->m_operation; }
+http::request http::response::request() { return m_impl->m_request; }
+http::progress_info http::response::progress() { return m_impl->progress(); }
+void http::response::cancel() { m_impl->cancel = true; }
+
+
+struct http::client::impl {
+};
+
+http::client::client() : m_impl(new impl()) { }
+http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
+http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
+http::client::~client() { delete m_impl; }
+    
+http::response http::client::request(
+    http::request req,
+    http::operation op,
+    http::headers headers,
+    http::buffer send_data,
+    std::string data_content_type
+) {
+    auto response = http::response();
+    response.m_impl = std::make_shared<http::response::impl>(
+        std::move(req), std::move(op), std::move(headers),
+        std::move(send_data), std::move(data_content_type),
+        nullptr
+    );
+    response.m_impl->request();
+    return response;
+}
+
+void http::client::request_stream(
+    std::function<bool(http::message data, http::progress_info progress)> receive_cb,
+    http::request req,
+    http::operation op,
+    http::headers headers,
+    http::buffer send_data,
+    std::string data_content_type
+) {
+    assert(receive_cb);
+
+    auto response = std::make_shared<http::response::impl>(
+        std::move(req), std::move(op), std::move(headers),
+        std::move(send_data), std::move(data_content_type),
+        receive_cb
+    );
+    response->request();
 }

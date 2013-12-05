@@ -22,51 +22,57 @@ static std::thread start_node_js(
 */
 
 
-static void print_response_data(http::response& res) {
-    auto&& data = res.data().get();
+static void print_message(http::message const& msg, std::string const& prefix) {
+    std::cout << prefix << "error_code: " << msg.error_code << "\t" << http::error_code_to_string(msg.error_code) << std::endl;
+    std::cout << prefix << "status:     " << msg.status << "\t" << http::status_to_string(msg.status) << std::endl;
+    std::cout << prefix << "headers: "    << std::endl;
+    for(auto&& i : msg.headers) {
+        std::cout << prefix << "\t" << i.first << ": " << i.second << std::endl;
+    }
+    std::cout << prefix << "body:       " << msg.body.size() << std::endl << std::string(msg.body.begin(), msg.body.begin() + std::min(size_t(80), msg.body.size())) << std::endl;
+}
 
+static void print_progress(http::progress_info const& progress, std::string const& prefix) {
+    std::cout << prefix << "download:   " << progress.downloadCurrentBytes << "/" << progress.downloadTotalBytes << "/" << progress.downloadSpeed << std::endl;
+    std::cout << prefix << "upload:     " << progress.uploadCurrentBytes   << "/" << progress.uploadTotalBytes   << "/" << progress.uploadSpeed   << std::endl;
+}
+
+static void print_response_data(http::response& res) {
     std::cout << "result:" << std::endl;
     std::cout << "\toperation:  " << http::operation_to_string(res.operation()) << std::endl;
     std::cout << "\trequest:    " << res.request() << std::endl;
-    std::cout << "\terror_code: " << data.error_code << "\t" << http::error_code_to_string(data.error_code) << std::endl;
-    std::cout << "\tstatus:     " << data.status << "\t" << http::status_to_string(data.status) << std::endl;
-    std::cout << "\theaders: "    << std::endl;
-    for(auto&& i : data.headers) {
-        std::cout << "\t\t" << i.first << ": " << i.second << std::endl;
-    }
-
-    auto&& progress = res.progress();
-    std::cout << "\tdownload:   " << progress.downloadCurrentBytes << "/" << progress.downloadTotalBytes << "/" << progress.downloadSpeed << std::endl;
-    std::cout << "\tupload:     " << progress.uploadCurrentBytes   << "/" << progress.uploadTotalBytes   << "/" << progress.uploadSpeed   << std::endl;
-
-    std::cout << "\tbody:       " << data.body.size() << std::endl << std::string(data.body.begin(), data.body.begin() + std::min(size_t(80), data.body.size())) << std::endl << std::endl;
+    print_progress(res.progress(), "\t");
+    print_message(res.data().get(), "\t");
+    std::cout << std::endl;
 }
 
 
 
 CATCH_TEST_CASE(
-    "dummy",
-    "dummy"
+    "dummy1",
+    "dummy1"
 ) {
-/*
-    std::string filename = "node_js_script.js";
-    std::string script = ""
-        "var http    = require('http');\n"
-        "var url     = require('url');\n"
-        "//var process = require('process');\n"
-        "\n"
-        "http.createServer(function (req, res) {\n"
-        "   var u = url.parse(req.url).pathname;\n"
-        "   res.writeHead(200, {'Content-Type': 'text/plain'});\n"
-        "   res.end('Hello Kosta\\n' + u);\n"
-        "   if(u == '/exit') { process.exit(); }"
-        "}).listen(1337, '127.0.0.1');\n"
-        "console.log('Server running at http://127.0.0.1:1337/');\n";
+    return;
 
-    auto run_node = start_node_js(filename, script);
-*/
+    /*
+     std::string filename = "node_js_script.js";
+     std::string script = ""
+     "var http    = require('http');\n"
+     "var url     = require('url');\n"
+     "//var process = require('process');\n"
+     "\n"
+     "http.createServer(function (req, res) {\n"
+     "   var u = url.parse(req.url).pathname;\n"
+     "   res.writeHead(200, {'Content-Type': 'text/plain'});\n"
+     "   res.end('Hello Kosta\\n' + u);\n"
+     "   if(u == '/exit') { process.exit(); }"
+     "}).listen(1337, '127.0.0.1');\n"
+     "console.log('Server running at http://127.0.0.1:1337/');\n";
+
+     auto run_node = start_node_js(filename, script);
+     */
     auto client = http::client();
-    
+
     auto request = http::request("http://127.0.0.1:5984/");
 
     try {
@@ -97,12 +103,48 @@ CATCH_TEST_CASE(
     } catch(...) {
         std::cerr << "exception: <unknown type>" << std::endl;
     }
-/*
-    auto call_exit = client.request(http::HTTP_GET, request + "exit/bla");
-    print_response_data(call_exit);
+    /*
+     auto call_exit = client.request(http::HTTP_GET, request + "exit/bla");
+     print_response_data(call_exit);
+     
+     run_node.join();
+     */
+}
 
-    run_node.join();
-*/
+
+
+CATCH_TEST_CASE(
+    "dummy2",
+    "dummy2"
+) {
+    auto client = http::client();
+
+    auto request = http::request("http://127.0.0.1:5984/_utils/document.html?kosta/dae10e4df489fa6adacd7efe5e00257a");
+
+    std::atomic<int> active_count(0);
+
+    for(size_t i = 0; i < 100; ++i) {
+        ++active_count;
+        auto cb = [&, i](http::message msg, http::progress_info progress) -> bool {
+            std::cout << "received: " << i << "\t" << http::error_code_to_string(msg.error_code) << "\t" << http::status_to_string(msg.status) << std::endl;
+            print_progress(progress, "\t");
+//            print_message(msg, "\t");
+//            std::cout << std::endl;
+
+            if(msg.body.empty()) {
+                --active_count;
+            }
+
+            return true;
+        };
+        
+        client.request_stream(cb, request, http::HTTP_GET);
+    }
+
+    while(active_count > 0) {
+//        std::cout << "sleeping: " << active_count << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 }
 
 
