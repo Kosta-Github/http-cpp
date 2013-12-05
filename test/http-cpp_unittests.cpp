@@ -1,6 +1,7 @@
 #include <catch/catch.hpp>
 
 #include <http-cpp/client.hpp>
+#include <http-cpp/utils.hpp>
 
 /*
 #include <cstdlib>
@@ -102,4 +103,23 @@ CATCH_TEST_CASE(
 
     run_node.join();
 */
+}
+
+
+
+
+CATCH_TEST_CASE(
+    "test http::escape()",
+    "[http][escape]"
+) {
+    CATCH_CHECK(http::escape("hello world") == "hello%20world");
+    CATCH_CHECK(http::escape("<>&?%/\\:=*") == "%3C%3E%26%3F%25%2F%5C%3A%3D%2A");
+}
+
+CATCH_TEST_CASE(
+    "test http::unescape()",
+    "[http][unescape]"
+) {
+    CATCH_CHECK(http::unescape("hello%20world") == "hello world");
+    CATCH_CHECK(http::unescape("%3C%3E%26%3F%25%2F%5C%3A%3D%2A") == "<>&?%/\\:=*");
 }
