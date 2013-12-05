@@ -29,7 +29,11 @@ namespace http {
         };
         std::future<info>& data();
 
+        http::operation operation();
+        http::request request();
+
         void progress(size_t& outDownCur, size_t& outDownTotal, size_t& outUpCur, size_t& outUpTotal);
+        void speed(size_t& outDown, size_t& outUp);
 
         void cancel();
 
@@ -55,9 +59,9 @@ namespace http {
         http::response request(
             http::operation op,
             http::request req,
-            receive_body_cb receive_cb = nullptr,
-            http::buffer send_body = http::buffer(),
-            std::string send_content_type = "x-application/octet-stream"
+            http::headers headers = http::headers(),
+            http::buffer send_data = http::buffer(),
+            std::string data_content_type = "application/octet-stream"
         );
 
     public:

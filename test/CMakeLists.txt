@@ -23,6 +23,8 @@ else()
 	message("-- node.js found: ${nodejs}")
 	message("-- configuring http unit tests")
 	
+    add_definitions(-DNODE_JS_EXE="${nodejs}")
+
 	add_executable(
 		 http-cpp_unittests
 		 main.cpp

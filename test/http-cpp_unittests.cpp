@@ -2,8 +2,31 @@
 
 #include <http-cpp/client.hpp>
 
-static void print_response_data(const http::response::info& data) {
+/*
+#include <cstdlib>
+#include <fstream>
+
+static std::thread start_node_js(
+    const std::string filename,
+    const std::string& script
+) {
+    {
+        std::ofstream f(filename);
+        f << script << std::endl;
+    }
+
+    std::string command = "\"" NODE_JS_EXE "\" \"" + filename + "\"";
+    return std::thread([=]() { std::system(command.c_str()); });
+}
+*/
+
+
+static void print_response_data(http::response& res) {
+    auto&& data = res.data().get();
+
     std::cout << "result:" << std::endl;
+    std::cout << "\toperation:  " << http::operation_to_string(res.operation()) << std::endl;
+    std::cout << "\trequest:    " << res.request() << std::endl;
     std::cout << "\terror_code: " << data.error_code << "\t" << http::error_code_to_string(data.error_code) << std::endl;
     std::cout << "\tstatus:     " << data.status << "\t" << http::status_to_string(data.status) << std::endl;
     std::cout << "\theaders: "    << std::endl;
@@ -19,9 +42,26 @@ CATCH_TEST_CASE(
     "dummy",
     "dummy"
 ) {
+/*
+    std::string filename = "node_js_script.js";
+    std::string script = ""
+        "var http    = require('http');\n"
+        "var url     = require('url');\n"
+        "//var process = require('process');\n"
+        "\n"
+        "http.createServer(function (req, res) {\n"
+        "   var u = url.parse(req.url).pathname;\n"
+        "   res.writeHead(200, {'Content-Type': 'text/plain'});\n"
+        "   res.end('Hello Kosta\\n' + u);\n"
+        "   if(u == '/exit') { process.exit(); }"
+        "}).listen(1337, '127.0.0.1');\n"
+        "console.log('Server running at http://127.0.0.1:1337/');\n";
+
+    auto run_node = start_node_js(filename, script);
+*/
     auto client = http::client();
     
-    auto request = http::request("https://www.google.com");
+    auto request = http::request("http://127.0.0.1:5984/");
 
     try {
         auto getResponse1       = client.request(http::HTTP_GET,    request);
@@ -40,15 +80,21 @@ CATCH_TEST_CASE(
 
         deleteResponse1.cancel();
 
-        print_response_data(getResponse1.data().get());
-        print_response_data(headResponse1.data().get());
-        print_response_data(postResponse1.data().get());
-        print_response_data(putResponse1.data().get());
-        print_response_data(deleteResponse1.data().get());
+        print_response_data(getResponse1);
+        print_response_data(headResponse1);
+        print_response_data(postResponse1);
+        print_response_data(putResponse1);
+        print_response_data(deleteResponse1);
 
     } catch(std::exception const& ex) {
         std::cerr << "exception: " << ex.what() << " [" << typeid(ex).name() << "]" << std::endl;
     } catch(...) {
         std::cerr << "exception: <unknown type>" << std::endl;
     }
+/*
+    auto call_exit = client.request(http::HTTP_GET, request + "exit/bla");
+    print_response_data(call_exit);
+
+    run_node.join();
+*/
 }

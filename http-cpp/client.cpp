@@ -61,6 +61,7 @@ namespace {
             curl_easy_setopt(handle, CURLOPT_HTTP_CONTENT_DECODING, 1);
             curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
             curl_easy_setopt(handle, CURLOPT_MAXREDIRS, 5); // max 5 redirects
+            curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE, 1);
         }
 
         void set_callbacks() {
@@ -80,8 +81,8 @@ namespace {
 
     public:
         virtual bool   write(const char* ptr, size_t bytes) = 0;
-        virtual size_t read(const char* ptr, size_t bytes) = 0;
-        virtual bool   progress(size_t downTotal, size_t downCur, size_t upTotal, size_t upCur) = 0;
+        virtual size_t read(char* ptr, size_t bytes) = 0;
+        virtual bool   progress(size_t downTotal, size_t downCur, size_t downSpeed, size_t upTotal, size_t upCur, size_t upSpeed) = 0;
         virtual void   header(const char* ptr, size_t bytes) = 0;
         virtual void   finish(CURLcode code, long status) = 0;
 
@@ -104,7 +105,16 @@ namespace {
         // }
         static  int  progress_stub(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
             auto wrap = static_cast<curl_easy_wrap*>(clientp); assert(wrap);
-            return (wrap->progress(static_cast<size_t>(dltotal), static_cast<size_t>(dlnow), static_cast<size_t>(ultotal), static_cast<size_t>(ulnow)) ? 0 : 1);
+
+            double speedDown = 0.0, speedUp = 0.0;
+            curl_easy_getinfo(wrap->handle, CURLINFO_SPEED_DOWNLOAD, &speedDown);
+            curl_easy_getinfo(wrap->handle, CURLINFO_SPEED_UPLOAD,   &speedUp);
+
+            auto res = wrap->progress(
+                static_cast<size_t>(dltotal), static_cast<size_t>(dlnow), static_cast<size_t>(speedDown),
+                static_cast<size_t>(ultotal), static_cast<size_t>(ulnow), static_cast<size_t>(speedUp)
+            );
+            return (res ? 0 : 1);
         }
 
         static size_t header_stub(char* ptr, size_t size, size_t nmemb, void* userdata) {
@@ -311,16 +321,26 @@ namespace {
 struct http::response::impl :
     public curl_easy_wrap
 {
-    impl(CURL* master =  nullptr) :
+    impl(
+         http::operation op,
+         http::request req,
+         CURL* master =  nullptr
+    ) :
         curl_easy_wrap(master),
         data_future(data_promise.get_future()),
         finished_future(finished_promise.get_future()),
-        progressDownCur(0), progressDownTotal(0),
-        progressUpCur(0),   progressUpTotal(0),
-        cancel(false)
+        m_op(op),
+        m_req(std::move(req)),
+        progressDownCur(0), progressDownTotal(0), speedDown(0),
+        progressUpCur(0),   progressUpTotal(0),   speedUp(0),
+        cancel(false),
+        send_progress(0)
     {
         data_collected.error_code   = CURLE_OK;
         data_collected.status       = http::HTTP_000_UNKNOWN;
+
+        curl_easy_setopt(handle, CURLOPT_URL, m_req.c_str());
+        curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
     }
 
     virtual ~impl() {
@@ -339,8 +359,11 @@ struct http::response::impl :
     std::promise<void>  finished_promise;
     std::future<void>   finished_future;
 
-    std::atomic<size_t> progressDownCur,    progressDownTotal;
-    std::atomic<size_t> progressUpCur,      progressUpTotal;
+    http::operation m_op;
+    http::request   m_req;
+
+    std::atomic<size_t> progressDownCur,    progressDownTotal,  speedDown;
+    std::atomic<size_t> progressUpCur,      progressUpTotal,    speedUp;
 
     std::atomic<bool>   cancel;
 
@@ -350,15 +373,22 @@ struct http::response::impl :
         return true;
     }
 
-    virtual size_t read(const char* ptr, size_t bytes) override {
-//        std::cout << this << ": read: " << ptr << " (" << bytes << " bytes)" << std::endl;
-        return 0;
+    virtual size_t read(char* ptr, size_t bytes) override {
+        auto send_bytes = std::min(bytes, send_buffer.size() - send_progress);
+        std::memcpy(ptr, send_buffer.data() + send_progress, send_bytes);
+        send_progress += send_bytes;
+        std::cout << this << ": read: " << ptr << " (" << bytes << " bytes; sending: " << send_bytes << "; remaining: " << (send_buffer.size() - send_progress) << ")" << std::endl;
+        return send_bytes;
     }
 
-    virtual bool progress(size_t downTotal, size_t downCur, size_t upTotal, size_t upCur) override {
+    virtual bool progress(
+        size_t downTotal, size_t downCur, size_t downSpeed,
+        size_t upTotal,   size_t upCur,   size_t upSpeed
+    ) override {
 //        std::cout << this << ": progress: down: " << downTotal << "/" << downCur << ", up: " << upTotal << "/" << upCur << std::endl;
-        progressDownCur = downCur;  progressDownTotal   = downTotal;
-        progressUpCur   = upCur;    progressUpTotal     = upTotal;
+        progressDownCur = downCur;  progressDownTotal   = downTotal; speedDown = downSpeed;
+        progressUpCur   = upCur;    progressUpTotal     = upTotal;   speedUp   = upSpeed;
+
         return !cancel;
     }
 
@@ -393,6 +423,37 @@ struct http::response::impl :
         finished_promise.set_value();
     }
 
+    void request_get() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        perform();
+    }
+
+    void request_head() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_NOBODY, 1);
+        perform();
+    }
+
+    void request_delete() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+        perform();
+    }
+
+    void request_put(http::buffer send_body, std::string content_type) {
+        send_buffer = std::move(send_body);
+        send_progress = 0;
+
+        auto size = static_cast<curl_off_t>(send_buffer.size());
+
+        curl_easy_setopt(handle, CURLOPT_URL, m_req.c_str());
+        curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
+        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE, size);
+        perform();
+    }
+
+    http::buffer send_buffer;
+    size_t       send_progress;
 };
 
 http::response::response() : m_impl(nullptr) { }
@@ -401,7 +462,10 @@ http::response& http::response::operator=(response&& o) HTTP_CPP_NOEXCEPT { std:
 http::response::~response() { delete m_impl; }
 
 std::future<http::response::info>& http::response::data() { return m_impl->data_future; }
+http::operation http::response::operation() { return m_impl->m_op; }
+http::request http::response::request() { return m_impl->m_req; }
 void http::response::progress(size_t& outDownCur, size_t& outDownTotal, size_t& outUpCur, size_t& outUpTotal) { outDownCur = m_impl->progressDownCur; outDownTotal = m_impl->progressDownTotal; outUpCur = m_impl->progressUpCur; outUpTotal = m_impl->progressUpTotal; }
+void http::response::speed(size_t& outDownSpeed, size_t& outUpSpeed) { outDownSpeed = m_impl->speedDown; outUpSpeed = m_impl->speedUp; }
 void http::response::cancel() { m_impl->cancel = true; }
 
 
@@ -416,18 +480,21 @@ http::client::~client() { delete m_impl; }
 http::response http::client::request(
     http::operation op,
     http::request req,
-    receive_body_cb receive_cb,
-    http::buffer send_body,
-    std::string send_content_type
+    http::headers headers,
+    http::buffer send_data,
+    std::string data_content_type
 ) {
     auto response = http::response();
-    response.m_impl = new http::response::impl();
-    auto handle = response.m_impl->handle;
-    
-    curl_easy_setopt(handle, CURLOPT_URL, req.c_str());
-    curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+    response.m_impl = new http::response::impl(op, std::move(req));
 
-    response.m_impl->perform();
+    switch(op) {
+        case http::HTTP_GET:    response.m_impl->request_get(); break;
+        case http::HTTP_HEAD:   response.m_impl->request_head(); break;
+        case http::HTTP_PUT:    response.m_impl->request_put(std::move(send_data), std::move(data_content_type)); break;
+        case http::HTTP_DELETE: response.m_impl->request_delete(); break;
+        case http::HTTP_POST:
+        default:                response.m_impl->finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
+    }
 
     return response;
 }
