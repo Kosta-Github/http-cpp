@@ -69,11 +69,11 @@ CATCH_TEST_CASE(
     auto request = http::request("http://127.0.0.1:5984/");
 
     try {
-        auto getResponse1       = client.request(http::HTTP_GET,    request);
-        auto headResponse1      = client.request(http::HTTP_HEAD,   request);
-        auto postResponse1      = client.request(http::HTTP_POST,   request);
-        auto putResponse1       = client.request(http::HTTP_PUT,    request);
-        auto deleteResponse1    = client.request(http::HTTP_DELETE, request);
+        auto getResponse1       = client.request(request, http::HTTP_GET);
+        auto headResponse1      = client.request(request, http::HTTP_HEAD);
+        auto postResponse1      = client.request(request, http::HTTP_POST);
+        auto putResponse1       = client.request(request, http::HTTP_PUT);
+        auto deleteResponse1    = client.request(request, http::HTTP_DELETE);
 
         auto result = getResponse1.data().wait_for(std::chrono::seconds(1));
         switch(result) {

@@ -32,6 +32,8 @@ add_library(
 	status.cpp
 	status.hpp
     response.hpp
+    utils.cpp
+    utils.hpp
 )
 
 if(MSVC)

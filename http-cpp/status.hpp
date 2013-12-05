@@ -98,5 +98,5 @@ namespace http {
     HTTP_API bool status_is_known(http::status s);
 
     HTTP_API const char* status_to_string(http::status s);
-
+    
 } // namespace http

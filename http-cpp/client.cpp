@@ -1,4 +1,5 @@
 #include "client.hpp"
+#include "utils.hpp"
 
 #include <curl/curl.h>
 
@@ -6,32 +7,9 @@
 #include <cassert>
 #include <thread>
 
-#undef min
-#undef max
-
-
 #include <iostream>
 
-
-
-/*
-static std::string escape_url(
-    CURL* const curl,
-    const char* const url
-) {
-    assert(curl);
-    assert(url);
-    auto escaped = curl_easy_escape(curl, url, 0);
-    auto result = std::string(escaped);
-    curl_free(escaped);
-    return result;
-}
-*/
-
 namespace {
-
-    struct curl_wrap;
-
 
     struct curl_global_init_wrap {
         curl_global_init_wrap()  { curl_global_init(CURL_GLOBAL_ALL); }
@@ -293,6 +271,9 @@ namespace {
     };
     
     struct global_data {
+        global_data() : m_dummy_handle(curl_easy_init()) { }
+        ~global_data() { curl_easy_cleanup(m_dummy_handle); }
+
         void add(curl_easy_wrap* wrap) {
             assert(wrap);
             m_share.add(wrap->handle);
@@ -309,6 +290,7 @@ namespace {
         curl_global_init_wrap m_init;
         curl_share_wrap       m_share;
         curl_multi_wrap       m_multi;
+        CURL* const           m_dummy_handle; // e.g., for escape()/unescape()
     };
 
     static global_data& global() {
@@ -477,8 +459,8 @@ http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(
 http::client::~client() { delete m_impl; }
     
 http::response http::client::request(
-    http::operation op,
     http::request req,
+    http::operation op,
     http::headers headers,
     http::buffer send_data,
     std::string data_content_type
@@ -496,4 +478,31 @@ http::response http::client::request(
     }
 
     return response;
+}
+
+std::string http::escape(
+    std::string s
+) {
+    if(s.empty()) { return s; }
+
+    auto handle = global().m_dummy_handle;
+    auto escaped = curl_easy_escape(handle, s.c_str(), s.size());
+    s = escaped;
+    curl_free(escaped);
+
+    return s;
+}
+
+std::string http::unescape(
+    std::string s
+) {
+    if(s.empty()) { return s; }
+
+    auto handle = global().m_dummy_handle;
+    int unescaped_len = 0;
+    auto unescaped = curl_easy_unescape(handle, s.c_str(), s.size(), &unescaped_len);
+    s.assign(unescaped, unescaped_len);
+    curl_free(unescaped);
+    
+    return s;
 }

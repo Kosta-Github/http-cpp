@@ -7,8 +7,8 @@ namespace http {
     struct HTTP_API client {
 
         http::response request(
-            http::operation op,
             http::request req,
+            http::operation op = http::HTTP_GET,
             http::headers headers = http::headers(),
             http::buffer send_data = http::buffer(),
             std::string data_content_type = "application/octet-stream"
