@@ -39,8 +39,6 @@ namespace {
             global_curl(nullptr),
             worker_shutdown(false)
         {
-            std::lock_guard<std::mutex> lock(mutex);
-
             curl_global_init(CURL_GLOBAL_ALL);
 
             const_cast<CURLM*&>(global_multi) = curl_multi_init();
@@ -69,8 +67,6 @@ namespace {
         }
 
         ~global_data() {
-            std::lock_guard<std::mutex> lock(mutex);
-
             worker_shutdown = true;
             worker.join();
 
@@ -91,7 +87,7 @@ namespace {
             assert(handle);
             assert(wrap);
 
-            std::lock_guard<std::mutex> lock(mutex);
+            std::lock_guard<std::mutex> lock(mutex_multi);
             assert(active_handles[handle] == nullptr);
             active_handles[handle] = wrap;
 
@@ -103,7 +99,8 @@ namespace {
             assert(handle);
             assert(wrap);
 
-            std::lock_guard<std::mutex> lock(mutex);
+            std::lock_guard<std::mutex> lock(mutex_multi);
+            assert(!active_handles[handle] || (active_handles[handle] == wrap));
             if(active_handles.erase(handle)) {
                 curl_multi_remove_handle(global_multi, handle);
                 curl_easy_setopt(handle, CURLOPT_SHARE, nullptr);
@@ -127,7 +124,7 @@ namespace {
         bool loop_stop() {
             if(!worker_shutdown) { return false; }
 
-            std::lock_guard<std::mutex> lock(mutex);
+            std::lock_guard<std::mutex> lock(mutex_multi);
             return active_handles.empty();
         }
 
@@ -136,7 +133,7 @@ namespace {
         CURLSH* const global_share;
         CURL*   const global_curl;
 
-        mutable std::mutex mutex;
+        mutable std::mutex mutex_multi;
         mutable std::mutex mutex_share;
         std::map<CURL*, curl_wrap*> active_handles;
 
@@ -156,6 +153,7 @@ namespace {
             assert(master);
             assert(curl);
 
+            curl_easy_setopt(curl, CURLOPT_PRIVATE, this);
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_function_stub);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, this);
             curl_easy_setopt(curl, CURLOPT_READFUNCTION, write_function_stub);
@@ -217,39 +215,56 @@ namespace {
     };
 
     void global_data::loop() {
+        std::vector<std::function<void()>> update_handles;
         while(!loop_stop()) {
+            update_handles.clear();
             int running_handles = 0;
-            auto perform_res = curl_multi_perform(global_multi, &running_handles);
-
             int mesages_left = 0;
-            while(auto msg = curl_multi_info_read(global_multi, &mesages_left)) {
-                auto handle = msg->easy_handle;
+            auto wait_time_ms = 10;
 
-                switch(msg->msg) {
-                    case CURLMSG_DONE: {
-                        std::lock_guard<std::mutex> lock(mutex);
-                        auto it = active_handles.find(handle);
-                        assert(it != active_handles.end());
+            {   // perform curl multi operations within the locked mutex
+                std::lock_guard<std::mutex> lock(mutex_multi);
+                auto perform_res = curl_multi_perform(global_multi, &running_handles);
 
-                        http::error_code error = msg->data.result;
+                // check if we should call perform again immediately
+                if(perform_res == CURLM_CALL_MULTI_PERFORM) {
+                    wait_time_ms = 0;
+                }
 
-                        long status = http::HTTP_000_UNKNOWN;
-                        curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
+                // retrieve the list of handles to update their state
+                while(auto msg = curl_multi_info_read(global_multi, &mesages_left)) {
+                    auto handle = msg->easy_handle;
 
-                        it->second->finish_function(error, static_cast<http::status>(status));
-                        break;
-                    }
-                    default: {
-                        assert(!"should not be reached");
-                        break;
+                    switch(msg->msg) {
+                        case CURLMSG_DONE: {
+                            auto it = active_handles.find(handle);
+                            assert(it != active_handles.end());
+
+                            auto wrap = it->second;
+                            auto error = msg->data.result;
+
+                            long status_curl = http::HTTP_000_UNKNOWN;
+                            curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status_curl);
+                            auto status = static_cast<http::status>(status_curl);
+
+                            update_handles.emplace_back(
+                                [=]() { wrap->finish_function(error, status); }
+                            );
+                            break;
+                        }
+                        default: {
+                            assert(!"should not be reached");
+                            break;
+                        }
                     }
                 }
             }
 
-            if(perform_res == CURLM_CALL_MULTI_PERFORM) {
-                std::this_thread::yield();
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            // update the done handles outside of the mutex
+            for(auto&& i : update_handles) { i(); }
+
+            if(wait_time_ms > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(wait_time_ms));
             }
         }
     }
