@@ -34,6 +34,8 @@ add_library(
     response.hpp
     utils.cpp
     utils.hpp
+    impl/curl_easy_wrap.hpp
+    impl/curl_global_init_wrap.hpp
 )
 
 if(MSVC)

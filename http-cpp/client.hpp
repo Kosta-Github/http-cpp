@@ -14,6 +14,15 @@ namespace http {
             std::string data_content_type = "application/octet-stream"
         );
 
+        void request(
+            std::function<bool(http::message data, http::progress_info progress)> receive_cb,
+            http::request req,
+            http::operation op = http::HTTP_GET,
+            http::headers headers = http::headers(),
+            http::buffer send_data = http::buffer(),
+            std::string data_content_type = "application/octet-stream"
+        );
+
     public:
         client();
         client(client&& o) HTTP_CPP_NOEXCEPT;
