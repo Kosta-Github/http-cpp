@@ -352,9 +352,9 @@ struct http::response::impl :
         global().add(this);
     }
 
-    std::promise<http::response::info>  data_promise;
-    std::future<http::response::info>   data_future;
-    http::response::info                data_collected;
+    std::promise<http::message>  data_promise;
+    std::future<http::message>   data_future;
+    http::message                data_collected;
 
     std::promise<void>  finished_promise;
     std::future<void>   finished_future;
@@ -461,11 +461,10 @@ http::response::response(response&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std
 http::response& http::response::operator=(response&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
 http::response::~response() { delete m_impl; }
 
-std::future<http::response::info>& http::response::data() { return m_impl->data_future; }
+std::future<http::message>& http::response::data() { return m_impl->data_future; }
 http::operation http::response::operation() { return m_impl->m_op; }
 http::request http::response::request() { return m_impl->m_req; }
-void http::response::progress(size_t& outDownCur, size_t& outDownTotal, size_t& outUpCur, size_t& outUpTotal) { outDownCur = m_impl->progressDownCur; outDownTotal = m_impl->progressDownTotal; outUpCur = m_impl->progressUpCur; outUpTotal = m_impl->progressUpTotal; }
-void http::response::speed(size_t& outDownSpeed, size_t& outUpSpeed) { outDownSpeed = m_impl->speedDown; outUpSpeed = m_impl->speedUp; }
+http::progress_info http::response::progress() { return http::progress_info(m_impl->progressDownCur, m_impl->progressDownTotal, m_impl->speedDown, m_impl->progressUpCur, m_impl->progressUpTotal, m_impl->speedUp); }
 void http::response::cancel() { m_impl->cancel = true; }
 
 

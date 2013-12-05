@@ -25,10 +25,13 @@ add_library(
     error_code.cpp
     error_code.hpp
 	http-cpp.hpp
+    message.hpp
 	operation.cpp
 	operation.hpp
+    progress_info.hpp
 	status.cpp
 	status.hpp
+    response.hpp
 )
 
 if(MSVC)

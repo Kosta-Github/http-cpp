@@ -33,6 +33,11 @@ static void print_response_data(http::response& res) {
     for(auto&& i : data.headers) {
         std::cout << "\t\t" << i.first << ": " << i.second << std::endl;
     }
+
+    auto&& progress = res.progress();
+    std::cout << "\tdownload:   " << progress.downloadCurrentBytes << "/" << progress.downloadTotalBytes << "/" << progress.downloadSpeed << std::endl;
+    std::cout << "\tupload:     " << progress.uploadCurrentBytes   << "/" << progress.uploadTotalBytes   << "/" << progress.uploadSpeed   << std::endl;
+
     std::cout << "\tbody:       " << data.body.size() << std::endl << std::string(data.body.begin(), data.body.begin() + std::min(size_t(80), data.body.size())) << std::endl << std::endl;
 }
 
