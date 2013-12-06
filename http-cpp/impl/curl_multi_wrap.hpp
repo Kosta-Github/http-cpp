@@ -31,6 +31,27 @@ namespace http {
 #endif // defined(WIN32) && defined(NDEBUG)
             }
 
+            void wait_for_all() {
+                while(true) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    if(m_active_handles.empty()) { break; }
+                }
+            }
+
+            void cancel_all() {
+                {   // first cancel all active handles
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    for(auto&& i : m_active_handles) {
+                        i.second->cancel();
+                    }
+                }
+
+                // then wait for them to finish
+                wait_for_all();
+            }
+
         public:
             void add(std::shared_ptr<http::impl::curl_easy_wrap> wrap) {
                 assert(wrap);
@@ -52,7 +73,6 @@ namespace http {
                 assert(handle);
 
                 std::lock_guard<std::mutex> lock(m_mutex);
-                assert(!m_active_handles[handle] || (m_active_handles[handle] == wrap));
                 if(m_active_handles.erase(handle)) {
                     curl_multi_remove_handle(m_multi, handle);
                 }
@@ -107,7 +127,7 @@ namespace http {
                     }
 
                     // update the done handles outside of the mutex
-                    for(auto&& i : update_handles) { i(); }
+                    for(auto&& update_cb : update_handles) { update_cb(); }
                     
                     if(wait_time_ms > 0) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(wait_time_ms));

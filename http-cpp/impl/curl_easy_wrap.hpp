@@ -54,6 +54,7 @@ namespace http {
             virtual void   header(const char* ptr, size_t bytes) = 0;
             virtual bool   progress(size_t downTotal, size_t downCur, size_t downSpeed, size_t upTotal, size_t upCur, size_t upSpeed) = 0;
             virtual void   finish(CURLcode code, long status) = 0;
+            virtual void   cancel() = 0;
 
         private:
             static size_t write_stub(char* ptr, size_t size, size_t nmemb, void* userdata) {

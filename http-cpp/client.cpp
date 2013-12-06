@@ -1,12 +1,3 @@
-// since VS2012 still fakes variadic templates with macro magic
-// we need to increase the number of supported arguments slightly
-// for std::make_shared<>
-#if defined(_MSC_VER) && (_MSC_VER <= 1700)
-#   if !defined(_VARIADIC_MAX) || (_VARIADIC_MAX < 6)
-#       define _VARIADIC_MAX 6
-#   endif // !defined(_VARIADIC_MAX) || (_VARIADIC_MAX < 6)
-#endif // defined(_MSC_VER) && (_MSC_VER <= 1700)
-
 #include "client.hpp"
 #include "utils.hpp"
 
@@ -91,26 +82,22 @@ struct http::response::impl :
         http::operation op,
         http::headers headers,
         http::buffer send_data,
-        std::string data_content_type,
-        std::function<bool(http::message, http::progress_info)> receive_cb
+        std::string data_content_type
     ) :
         curl_easy_wrap(),
-        data_future(data_promise.get_future()),
+        message_future(message_promise.get_future()),
+        message(http::HTTP_REQUEST_PROGRESS, http::HTTP_000_UNKNOWN),
         finished_future(finished_promise.get_future()),
+        m_cancel(false),
         m_request(std::move(req)),
         m_operation(op),
         m_send_headers(std::move(headers)),
         m_send_data(std::move(send_data)),
         m_send_data_content_type(std::move(data_content_type)),
         m_send_progress(0),
-        m_receive_cb(std::move(receive_cb)),
         progressDownCur(0), progressDownTotal(0), speedDown(0),
-        progressUpCur(0),   progressUpTotal(0),   speedUp(0),
-        cancel(false)
+        progressUpCur(0),   progressUpTotal(0),   speedUp(0)
     {
-        data_collected.error_code   = CURLE_OK;
-        data_collected.status       = http::HTTP_000_UNKNOWN;
-
         curl_easy_setopt(handle, CURLOPT_URL, m_request.c_str());
         curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
     }
@@ -119,12 +106,15 @@ struct http::response::impl :
         finished_future.wait();
     }
 
-    std::promise<http::message>  data_promise;
-    std::future<http::message>   data_future;
-    http::message                data_collected;
+public:
+    std::promise<http::message>  message_promise;
+    std::future<http::message>   message_future;
+    http::message                message;
 
     std::promise<void>  finished_promise;
     std::future<void>   finished_future;
+
+    std::atomic<bool>   m_cancel;
 
     http::request   m_request;
     http::operation m_operation;
@@ -134,30 +124,38 @@ struct http::response::impl :
     size_t          m_send_progress;
 
     std::function<bool(http::message, http::progress_info)> m_receive_cb;
+    std::function<void()> m_continue_cb;
 
     std::atomic<size_t> progressDownCur,    progressDownTotal,  speedDown;
     std::atomic<size_t> progressUpCur,      progressUpTotal,    speedUp;
 
-    std::atomic<bool>   cancel;
-
+public:
     virtual bool write(const char* ptr, size_t bytes) override {
-//        std::cout << this << ": write: " << ptr << " (" << bytes << " bytes): " << std::string(ptr, ptr + std::min(bytes, size_t(40))) << std::endl;
-        data_collected.body.insert(data_collected.body.end(), ptr, ptr + bytes);
+        if(m_cancel) { return true; }
+
+        // add data to the end of the receive/message buffer
+        message.body.insert(message.body.end(), ptr, ptr + bytes);
 
         if(m_receive_cb) {
-            http::message msg(data_collected.error_code, data_collected.status, data_collected.headers, std::move(data_collected.body));
-            cancel = !m_receive_cb(std::move(msg), progress());
-        } else {
+            // call the receive callback with the received data immediately
+            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, message.headers, std::move(message.body));
+            message.body.clear(); // ensure that the receive/message buffer is in a defined state again
+
+            // call the callback and check for cancelation
+            auto proceed = m_receive_cb(std::move(msg), progress());
+            if(!proceed) { m_cancel = true; }
         }
 
         return true;
     }
 
     virtual size_t read(char* ptr, size_t bytes) override {
+        assert(m_send_progress <= m_send_data.size());
+
         auto send_bytes = std::min(bytes, m_send_data.size() - m_send_progress);
         std::memcpy(ptr, m_send_data.data() + m_send_progress, send_bytes);
         m_send_progress += send_bytes;
-        std::cout << this << ": read: " << ptr << " (" << bytes << " bytes; sending: " << send_bytes << "; remaining: " << (m_send_data.size() - m_send_progress) << ")" << std::endl;
+
         return send_bytes;
     }
 
@@ -168,57 +166,84 @@ struct http::response::impl :
         progressDownCur = downCur;  progressDownTotal   = downTotal; speedDown = downSpeed;
         progressUpCur   = upCur;    progressUpTotal     = upTotal;   speedUp   = upSpeed;
 
-        return !cancel;
+        if(m_receive_cb) {
+            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, message.headers);
+            auto proceed = m_receive_cb(std::move(msg), progress());
+            if(!proceed) { m_cancel = true; }
+        }
+
+        return !m_cancel;
     }
 
     http::progress_info progress() {
-        return http::progress_info(progressDownCur, progressDownTotal, speedDown, progressUpCur, progressUpTotal, speedUp);
+        return http::progress_info(
+            progressDownCur, progressDownTotal, speedDown,
+            progressUpCur, progressUpTotal, speedUp
+        );
     }
 
     virtual void header(const char* ptr, size_t bytes) override {
-        if(bytes < 2) { return; } // skip invalid data
-
         // strip off "CRLF" at the end
-        if(ptr[bytes-1] == '\n') { --bytes; }
-        if(ptr[bytes-1] == '\r') { --bytes; }
+        if((bytes > 0) && (ptr[bytes-1] == '\n')) { --bytes; }
+        if((bytes > 0) && (ptr[bytes-1] == '\r')) { --bytes; }
 
         // end of headers found
         if(bytes == 0) { return; }
 
-//        std::cout << this << ": header: " << bytes << " bytes:\n" << std::string(ptr, ptr + bytes) << std::endl;
+        // try to extract the key-value pair; if found add it to
+        // the message's headers object
         auto str = std::string(ptr, ptr + bytes);
         auto pos = str.find(": ");
         if(pos != str.npos) {
-            data_collected.headers[str.substr(0, pos)] = str.substr(pos + 2);
+            message.headers[str.substr(0, pos)] = str.substr(pos + 2);
         }
     }
 
     virtual void start() {
+        // add this to the list of active requests which
+        // actually handles the request in the send/receive
+        // thread and also ensures that this object gets
+        // not destructed until it is finished.
         global().add(shared_from_this());
     }
 
     virtual void finish(CURLcode code, long status) override {
         auto error = static_cast<http::error_code>(code);
-        if((error != http::HTTP_REQUEST_OK) && cancel) {
+        if((error != http::HTTP_REQUEST_FINISHED) && m_cancel) {
             error = http::HTTP_REQUEST_CANCELED;
         }
 
-        data_collected.error_code   = error;
-        data_collected.status       = static_cast<http::status>(status);
+        message.error_code  = error;
+        message.status      = static_cast<http::status>(status);
 
+        // call the receive callback a last time with the final
+        // error code
         if(m_receive_cb) {
-            assert(data_collected.body.empty());
-            m_receive_cb(std::move(data_collected), progress());
-        } else {
-            data_promise.set_value(std::move(data_collected));
+            assert(message.body.empty());
+            m_receive_cb(message, progress());
         }
 
-        finished_promise.set_value();
+        // set the final message data so it can be retrieved
+        // with the message-future object in the response object
+        message_promise.set_value(std::move(message));
 
+        // call an optional continuation callback for this request
+        if(m_continue_cb) {
+            m_continue_cb();
+        }
+
+        // mark this request as finished and remove it from the
+        // active requests list again
+        finished_promise.set_value();
         global().remove(shared_from_this());
     }
 
+    virtual void cancel() override {
+        m_cancel = true;
+    }
+
     void request() {
+        // dispatch the HTTP operation
         switch(m_operation) {
             case http::HTTP_GET:    request_get();      break;
             case http::HTTP_HEAD:   request_head();     break;
@@ -260,15 +285,14 @@ http::response::response(response&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std
 http::response& http::response::operator=(response&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
 http::response::~response() { }
 
-std::future<http::message>& http::response::data() { return m_impl->data_future; }
+std::future<http::message>& http::response::data() { return m_impl->message_future; }
 http::operation http::response::operation() { return m_impl->m_operation; }
 http::request http::response::request() { return m_impl->m_request; }
 http::progress_info http::response::progress() { return m_impl->progress(); }
-void http::response::cancel() { m_impl->cancel = true; }
+void http::response::cancel() { m_impl->cancel(); }
 
 
-struct http::client::impl {
-};
+struct http::client::impl { };
 
 http::client::client() : m_impl(new impl()) { }
 http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
@@ -282,13 +306,37 @@ http::response http::client::request(
     http::buffer send_data,
     std::string data_content_type
 ) {
-    auto response = http::response();
-    response.m_impl = std::make_shared<http::response::impl>(
-        std::move(req), std::move(op), std::move(headers),
-        std::move(send_data), std::move(data_content_type),
-        nullptr
+    return request(
+        nullptr, std::move(req), std::move(op),
+        std::move(headers), std::move(send_data), std::move(data_content_type)
     );
-    response.m_impl->request();
+}
+
+http::response http::client::request(
+    std::function<void(http::response response)> continuationWith,
+    http::request req,
+    http::operation op,
+    http::headers headers,
+    http::buffer send_data,
+    std::string data_content_type
+) {
+    auto res_impl = std::make_shared<http::response::impl>(
+        std::move(req), std::move(op), std::move(headers),
+        std::move(send_data), std::move(data_content_type)
+    );
+
+    if(continuationWith) {
+        res_impl->m_continue_cb = [=]() {
+            auto response = http::response();
+            response.m_impl = res_impl;
+            continuationWith(std::move(response));
+        };
+    }
+
+    res_impl->request();
+
+    auto response = http::response();
+    response.m_impl = res_impl;
     return response;
 }
 
@@ -302,10 +350,15 @@ void http::client::request_stream(
 ) {
     assert(receive_cb);
 
-    auto response = std::make_shared<http::response::impl>(
+    auto res_impl = std::make_shared<http::response::impl>(
         std::move(req), std::move(op), std::move(headers),
-        std::move(send_data), std::move(data_content_type),
-        receive_cb
+        std::move(send_data), std::move(data_content_type)
     );
-    response->request();
+
+    res_impl->m_receive_cb = std::move(receive_cb);
+
+    res_impl->request();
 }
+
+void http::client::wait_for_all() { global().m_multi.wait_for_all(); }
+void http::client::cancel_all() { global().m_multi.cancel_all(); }

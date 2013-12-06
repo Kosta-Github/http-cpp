@@ -14,7 +14,7 @@ namespace http {
 
     struct message {
         message(
-            http::error_code ec = http::HTTP_REQUEST_OK,
+            http::error_code ec = http::HTTP_REQUEST_PROGRESS,
             http::status     s  = http::HTTP_000_UNKNOWN,
             http::headers    h  = http::headers(),
             http::buffer     b  = http::buffer()

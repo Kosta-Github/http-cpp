@@ -5,11 +5,12 @@
 
 #include <atomic>
 
-/*
 #include <cstdlib>
 #include <fstream>
 
-static std::thread start_node_js(
+#if defined(PYTHON_EXE)
+
+static std::thread start_python(
     const std::string filename,
     const std::string& script
 ) {
@@ -18,10 +19,34 @@ static std::thread start_node_js(
         f << script << std::endl;
     }
 
-    std::string command = "\"" NODE_JS_EXE "\" \"" + filename + "\"";
+    std::string command = "\"" PYTHON_EXE "\" \"" + filename + "\"";
     return std::thread([=]() { std::system(command.c_str()); });
 }
-*/
+
+CATCH_TEST_CASE(
+    "Start python web-service",
+    "[http][python][start]"
+) {
+     std::string filename = "web-service.py";
+     std::string script = ""
+        "import web\n"
+        "\n"
+        "urls = (\n"
+        "    '/', 'index'\n"
+        ")\n"
+        "\n"
+        "class index:\n"
+        "    def GET(self):\n"
+        "        return \"Hello, world!\"\n"
+        "\n"
+        "if __name__ == \"__main__\":\n"
+        "    app = web.application(urls, globals())\n"
+        "    app.run()\n";
+
+//     auto run_node = start_python(filename, script);
+};
+
+#endif // defined(PYTHON_EXE)
 
 
 static void print_message(http::message const& msg, std::string const& prefix) {
@@ -49,33 +74,14 @@ static void print_response_data(http::response& res) {
 }
 
 
-
+/*
 CATCH_TEST_CASE(
-    "dummy1",
-    "dummy1"
+    "Tests against google web-server",
+    "[http][requests][google-host]"
 ) {
-    return;
-
-    /*
-     std::string filename = "node_js_script.js";
-     std::string script = ""
-     "var http    = require('http');\n"
-     "var url     = require('url');\n"
-     "//var process = require('process');\n"
-     "\n"
-     "http.createServer(function (req, res) {\n"
-     "   var u = url.parse(req.url).pathname;\n"
-     "   res.writeHead(200, {'Content-Type': 'text/plain'});\n"
-     "   res.end('Hello Kosta\\n' + u);\n"
-     "   if(u == '/exit') { process.exit(); }"
-     "}).listen(1337, '127.0.0.1');\n"
-     "console.log('Server running at http://127.0.0.1:1337/');\n";
-
-     auto run_node = start_node_js(filename, script);
-     */
     auto client = http::client();
 
-    auto request = http::request("http://127.0.0.1:5984/");
+    auto request = http::request("http://google.com");
 
     try {
         auto getResponse1       = client.request(request, http::HTTP_GET);
@@ -105,35 +111,29 @@ CATCH_TEST_CASE(
     } catch(...) {
         std::cerr << "exception: <unknown type>" << std::endl;
     }
-    /*
-     auto call_exit = client.request(http::HTTP_GET, request + "exit/bla");
-     print_response_data(call_exit);
-     
-     run_node.join();
-     */
 }
-
-
+*/
 
 CATCH_TEST_CASE(
-    "dummy2",
-    "dummy2"
+    "Tests against localhost web-server",
+    "[http][requests][local-host]"
 ) {
     auto client = http::client();
 
-    auto request = http::request("http://127.0.0.1:5984/_utils/document.html?kosta/dae10e4df489fa6adacd7efe5e00257a");
+    auto request = http::request("http://google.com");
+//    auto request = http::request("http://127.0.0.1:5984/_utils/document.html?kosta/dae10e4df489fa6adacd7efe5e00257a");
 
     std::atomic<int> active_count(0);
 
-    for(size_t i = 0; i < 100; ++i) {
+    for(size_t i = 0; i < 10; ++i) {
         ++active_count;
         auto cb = [&, i](http::message msg, http::progress_info progress) -> bool {
             std::cout << "received: " << i << "\t" << http::error_code_to_string(msg.error_code) << "\t" << http::status_to_string(msg.status) << std::endl;
-            print_progress(progress, "\t");
+//            print_progress(progress, "\t");
 //            print_message(msg, "\t");
 //            std::cout << std::endl;
 
-            if(msg.body.empty()) {
+            if(msg.error_code != http::HTTP_REQUEST_PROGRESS) {
                 --active_count;
             }
 
@@ -143,10 +143,12 @@ CATCH_TEST_CASE(
         client.request_stream(cb, request, http::HTTP_GET);
     }
 
-    while(active_count > 0) {
+{ //    while(active_count > 0) {
 //        std::cout << "sleeping: " << active_count << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+
+    http::client::cancel_all();
 }
 
 
