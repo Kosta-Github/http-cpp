@@ -1,4 +1,8 @@
+#pragma once
+
 #include <curl/curl.h>
+
+#include <atomic>
 
 namespace http {
     namespace impl {

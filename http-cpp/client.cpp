@@ -1,3 +1,12 @@
+// since VS2012 still fakes variadic templates with macro magic
+// we need to increase the number of supported arguments slightly
+// for std::make_shared<>
+#if defined(_MSC_VER) && (_MSC_VER <= 1700)
+#   if !defined(_VARIADIC_MAX) || (_VARIADIC_MAX < 6)
+#       define _VARIADIC_MAX 6
+#   endif // !defined(_VARIADIC_MAX) || (_VARIADIC_MAX < 6)
+#endif // defined(_MSC_VER) && (_MSC_VER <= 1700)
+
 #include "client.hpp"
 #include "utils.hpp"
 
@@ -6,13 +15,11 @@
 #include "impl/curl_multi_wrap.hpp"
 #include "impl/curl_share_wrap.hpp"
 
-#include <curl/curl.h>
-
-#include <atomic>
-#include <cassert>
-#include <thread>
-
+// for testing purpose onyl
 #include <iostream>
+
+#undef min
+#undef max
 
 namespace {
 
@@ -53,7 +60,7 @@ std::string http::escape(
     if(s.empty()) { return s; }
 
     auto handle = global().m_dummy_handle;
-    auto escaped = curl_easy_escape(handle, s.c_str(), s.size());
+    auto escaped = curl_easy_escape(handle, s.c_str(), static_cast<int>(s.size()));
     s = escaped;
     curl_free(escaped);
 
@@ -67,7 +74,7 @@ std::string http::unescape(
 
     auto handle = global().m_dummy_handle;
     int unescaped_len = 0;
-    auto unescaped = curl_easy_unescape(handle, s.c_str(), s.size(), &unescaped_len);
+    auto unescaped = curl_easy_unescape(handle, s.c_str(), static_cast<int>(s.size()), &unescaped_len);
     s.assign(unescaped, unescaped_len);
     curl_free(unescaped);
     

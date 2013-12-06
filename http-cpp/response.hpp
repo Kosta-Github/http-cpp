@@ -6,6 +6,12 @@
 
 #include <future>
 
+ // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
+#if defined(_MSC_VER)
+#   pragma warning(push)
+#   pragma warning(disable: 4251)
+#endif // defined(_MSC_VER)
+
 namespace http {
 
     typedef std::string request;
@@ -37,3 +43,7 @@ namespace http {
     };
 
 } // namespace http
+
+#if defined(_MSC_VER)
+#   pragma warning(pop)
+#endif // defined(_MSC_VER)

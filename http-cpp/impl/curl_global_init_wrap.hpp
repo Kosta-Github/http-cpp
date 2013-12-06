@@ -1,3 +1,5 @@
+#pragma once
+
 #include <curl/curl.h>
 
 namespace http {

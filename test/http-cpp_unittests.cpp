@@ -3,6 +3,8 @@
 #include <http-cpp/client.hpp>
 #include <http-cpp/utils.hpp>
 
+#include <atomic>
+
 /*
 #include <cstdlib>
 #include <fstream>
