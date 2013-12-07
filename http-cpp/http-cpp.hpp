@@ -13,6 +13,7 @@
 
 #if defined(_MSC_VER) && (_MSC_VER <= 1800)
 #  define HTTP_CPP_NOEXCEPT throw()
+#  define HTTP_CPP_NEED_EXPLICIT_MOVE
 #else // defined(_MSC_VER) && (_MSC_VER <= 1800)
 #  define HTTP_CPP_NOEXCEPT noexcept
 #endif // defined(_MSC_VER) && (_MSC_VER <= 1800)
