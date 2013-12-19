@@ -31,45 +31,60 @@
 #include <cstdlib>
 #include <fstream>
 
-#if defined(PYTHON_EXE)
+#if defined(NODE_EXE) && defined(NODE_SERVER_JS)
 
-static std::thread start_python(
-    const std::string filename,
-    const std::string& script
-) {
-    {
-        std::ofstream f(filename);
-        f << script << std::endl;
+static std::shared_ptr<std::thread> start_node_server() {
+    const std::string node_base_url      = "localhost:8888/";
+    const std::string node_start_request = node_base_url + "start";
+    const std::string node_stop_request  = node_base_url + "stop";
+
+    std::string command = NODE_EXE " \"" NODE_SERVER_JS "\"";
+#if defined(WIN32)
+    std::replace(command.begin(), command.end(), '/', '\\');
+#endif // defined(WIN32)
+
+    auto start_node = [=]() {
+        auto res = std::system(command.c_str());
+        std::cout << "server exited with code: " << res << std::endl;
+    };
+
+    auto stop_node = [=](std::thread* t) {
+        assert(t);
+
+        // send the stop request to the server
+        http::client().request(node_stop_request).data().wait();
+
+        // wait for the thread to terminate and delete
+        // the corresponding object
+        t->join();
+        delete t;
+    };
+
+    auto result = std::shared_ptr<std::thread>(
+        new std::thread(start_node), stop_node
+    );
+
+    // send the start request to the server and wait for an answer
+    while(true) {
+        auto&& data = http::client().request(node_start_request).data().get();
+        if(data.error_code == http::HTTP_REQUEST_FINISHED) {
+            if(data.status == http::HTTP_200_OK) {
+                break;
+            }
+        }
     }
 
-    std::string command = "\"" PYTHON_EXE "\" \"" + filename + "\"";
-    return std::thread([=]() { std::system(command.c_str()); });
+    return result;
 }
 
 CATCH_TEST_CASE(
-    "Start python web-service",
-    "[http][python][start]"
+    "Start node web-service",
+    "[http][node-server][start]"
 ) {
-     std::string filename = "web-service.py";
-     std::string script = ""
-        "import web\n"
-        "\n"
-        "urls = (\n"
-        "    '/', 'index'\n"
-        ")\n"
-        "\n"
-        "class index:\n"
-        "    def GET(self):\n"
-        "        return \"Hello, world!\"\n"
-        "\n"
-        "if __name__ == \"__main__\":\n"
-        "    app = web.application(urls, globals())\n"
-        "    app.run()\n";
-
-//     auto run_node = start_python(filename, script);
+    auto node = start_node_server();
 };
 
-#endif // defined(PYTHON_EXE)
+#endif // defined(NODE_EXE) && defined(NODE_SERVER_JS)
 
 
 static void print_message(http::message const& msg, std::string const& prefix) {

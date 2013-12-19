@@ -8,31 +8,35 @@ include_directories("${HTTP_CPP_3RD_PARTY_DIR}/catch/include")
 add_definitions(-DCATCH_CONFIG_PREFIX_ALL)
 
 find_program(
-	python
-	NAMES python
+	node
+	NAMES node
+	PATHS ${HTTP_CPP_3RD_PARTY_DIR}/node.js/Win64
 )
 
-if(python STREQUAL "python-NOTFOUND")
-	message("-- no 'python' found: skipping http request unit tests against a dummy server...")
+if(node STREQUAL "node-NOTFOUND")
+	message("-- no 'node' found: skipping http request unit tests against a dummy server...")
 else()
-	message("-- 'python' found: ${python}")
+	message("-- 'node' found: ${node}")
 	message("-- configuring http request unit tests against a dummy server")
 	
-    add_definitions(-DPYTHON_EXE="${python}")
+	add_definitions(
+		-DNODE_EXE="${node}"
+		-DNODE_SERVER_JS="${CMAKE_CURRENT_SOURCE_DIR}/server/index.js"
+	)
 endif()
 
 add_executable(
-	http-cpp_unittests
+	http_unittests
 	main.cpp
-	http-cpp_unittests.cpp
+	http_unittests.cpp
 )
 	 
 target_link_libraries(
-	http-cpp_unittests
+	http_unittests
 	http-cpp
 )
 
 add_test(
-	NAME http-cpp_unittests
-	COMMAND http-cpp_unittests
+	NAME http_unittests
+	COMMAND http_unittests
 )
