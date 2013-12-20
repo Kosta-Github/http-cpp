@@ -28,6 +28,7 @@ before_install:
 install:
   - echo CXX=$CXX
   - $CXX --version
+  - cmake --version
   - cmake -H. -BBuild -DCMAKE_BUILD_TYPE=$BUILD_CONFIG
 
 script:
