@@ -11,7 +11,7 @@ if(MSVC)
 	add_definitions(-DCURL_STATICLIB)
 	message("-- using curl lib: ${CURL_HOME}")
 else(MSVC)
-	find_package(curl REQUIRED)
+	find_package(CURL)
 endif(MSVC)
 
 include_directories(
