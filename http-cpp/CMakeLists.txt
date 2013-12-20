@@ -12,31 +12,34 @@ if(MSVC)
 	message("-- using curl lib: ${CURL_HOME}")
 else(MSVC)
 	find_package(CURL)
+	message("-- using curl includes: ${CURL_INCLUDE_DIRS}")
+	message("-- using curl libs:     ${CURL_LIBRARIES}")
+	message("-- using curl version:  ${CURL_VERSION_STRING}")
 endif(MSVC)
 
 include_directories(
-    ${CURL_INCLUDE_DIRS}
+	${CURL_INCLUDE_DIRS}
 )
 
 add_library(
 	http-cpp SHARED
 	client.cpp
 	client.hpp
-    error_code.cpp
-    error_code.hpp
+	error_code.cpp
+	error_code.hpp
 	http-cpp.hpp
-    message.hpp
+	message.hpp
 	operation.cpp
 	operation.hpp
-    progress_info.hpp
+	progress_info.hpp
 	status.cpp
 	status.hpp
-    response.hpp
-    utils.hpp
-    impl/curl_easy_wrap.hpp
-    impl/curl_global_init_wrap.hpp
-    impl/curl_multi_wrap.hpp
-    impl/curl_share_wrap.hpp
+	response.hpp
+	utils.hpp
+	impl/curl_easy_wrap.hpp
+	impl/curl_global_init_wrap.hpp
+	impl/curl_multi_wrap.hpp
+	impl/curl_share_wrap.hpp
 )
 
 if(MSVC)
