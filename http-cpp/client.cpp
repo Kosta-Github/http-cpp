@@ -30,7 +30,7 @@
 #include "impl/curl_share_wrap.hpp"
 
 // for testing purpose onyl
-#include <iostream>
+#include <cstring>
 
 #undef min
 #undef max
