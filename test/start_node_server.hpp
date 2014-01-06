@@ -21,22 +21,9 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#define CATCH_CONFIG_RUNNER
-#include <catch/catch.hpp>
+#pragma once
 
-#include "start_node_server.hpp"
+#include <memory>
+#include <thread>
 
-#include <http-cpp/client.hpp>
-
-int main(int const argc, char* const argv[]) {
-    std::wcout.precision(17);
-    std::wcerr.precision(17);
-
-    auto node = start_node_server();
-
-    auto res = Catch::Session().run(argc, argv);
-
-    http::client::cancel_all();
-
-    return res;
-}
+std::shared_ptr<std::thread> start_node_server();

@@ -29,6 +29,12 @@ add_executable(
 	http_unittests
 	main.cpp
 	http_unittests.cpp
+	start_node_server.cpp
+	start_node_server.hpp
+	server/index.js
+	server/request_handlers.js
+	server/router.js
+	server/server.js
 )
 	 
 target_link_libraries(
