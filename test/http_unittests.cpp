@@ -160,7 +160,7 @@ static void perform_parallel_stream_requests(
     std::atomic<int> active_count(count);
 
     for(int i = 0; i < count; ++i) {
-        auto cb = [&](http::message msg, http::progress_info progress) -> bool {
+        auto cb = [&](http::message msg, http::progress progress) -> bool {
             switch(msg.error_code) {
                 case http::HTTP_REQUEST_PROGRESS: {
                     break;

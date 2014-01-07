@@ -81,7 +81,7 @@ namespace http {
         /// HTTP_REQUEST_PROGRESS, HTTP_REQUEST_CANCELED, and
         /// all other positive values indicating an error.
         void request_stream(
-            std::function<bool(http::message data, http::progress_info progress)> receive_cb,
+            std::function<bool(http::message data, http::progress progress)> receive_cb,
             http::request   req,
             http::operation op                  = http::HTTP_GET,
             http::headers   headers             = http::headers(),

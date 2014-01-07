@@ -75,7 +75,7 @@ namespace http {
             virtual bool   write(const char* ptr, size_t bytes) = 0;
             virtual size_t read(char* ptr, size_t bytes) = 0;
             virtual void   header(const char* ptr, size_t bytes) = 0;
-            virtual bool   progress(size_t downTotal, size_t downCur, size_t downSpeed, size_t upTotal, size_t upCur, size_t upSpeed) = 0;
+            virtual bool   progress(size_t downCur, size_t downTotal, size_t downSpeed, size_t upCur, size_t upTotal, size_t upSpeed) = 0;
             virtual void   finish(CURLcode code, long status) = 0;
             virtual void   cancel() = 0;
 
@@ -108,8 +108,8 @@ namespace http {
                 curl_easy_getinfo(wrap->handle, CURLINFO_SPEED_UPLOAD,   &speedUp);
                 
                 auto res = wrap->progress(
-                    static_cast<size_t>(dltotal), static_cast<size_t>(dlnow), static_cast<size_t>(speedDown),
-                    static_cast<size_t>(ultotal), static_cast<size_t>(ulnow), static_cast<size_t>(speedUp)
+                    static_cast<size_t>(dlnow), static_cast<size_t>(dltotal), static_cast<size_t>(speedDown),
+                    static_cast<size_t>(ulnow), static_cast<size_t>(ultotal), static_cast<size_t>(speedUp)
                 );
                 return (res ? 0 : 1);
             }

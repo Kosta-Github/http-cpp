@@ -25,7 +25,7 @@
 
 #include "message.hpp"
 #include "operation.hpp"
-#include "progress_info.hpp"
+#include "progress.hpp"
 
 #include <future>
 
@@ -45,7 +45,7 @@ namespace http {
         http::operation operation();
         http::request request();
 
-        http::progress_info progress();
+        http::progress progress();
 
         void cancel();
 

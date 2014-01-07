@@ -118,7 +118,8 @@ struct http::response::impl :
         m_send_data(std::move(send_data)),
         m_send_data_content_type(std::move(data_content_type)),
         m_send_progress(0),
-        m_progress_info()
+        m_progress_mutex(),
+        m_progress()
     {
         curl_easy_setopt(handle, CURLOPT_URL, m_request.c_str());
         curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
@@ -145,10 +146,11 @@ public:
     std::string     m_send_data_content_type;
     size_t          m_send_progress;
 
-    std::function<bool(http::message, http::progress_info)> m_receive_cb;
-    std::function<void()> m_continue_cb;
+    std::function<bool(http::message, http::progress)>  m_receive_cb;
+    std::function<void()>                               m_continue_cb;
 
-    std::shared_ptr<http::progress_info> m_progress_info;
+    std::mutex      m_progress_mutex;
+    http::progress  m_progress;
 
 public:
     virtual bool write(const char* ptr, size_t bytes) override {
@@ -181,10 +183,18 @@ public:
     }
 
     virtual bool progress(
-        size_t downTotal, size_t downCur, size_t downSpeed,
-        size_t upTotal,   size_t upCur,   size_t upSpeed
+        size_t downCur, size_t downTotal, size_t downSpeed,
+        size_t upCur,   size_t upTotal,   size_t upSpeed
     ) override {
-        m_progress_info = std::make_shared<http::progress_info>(downCur, downTotal, downSpeed, upCur, upTotal, upSpeed);
+        {
+            std::lock_guard<std::mutex> lock(m_progress_mutex);
+            m_progress.downloadCurrentBytes = downCur;
+            m_progress.downloadTotalBytes   = downTotal;
+            m_progress.downloadSpeed        = downSpeed;
+            m_progress.uploadCurrentBytes   = upCur;
+            m_progress.uploadTotalBytes     = upTotal;
+            m_progress.uploadSpeed          = upSpeed;
+        }
 
         if(m_receive_cb) {
             http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, message.headers);
@@ -195,11 +205,9 @@ public:
         return !m_cancel;
     }
 
-    http::progress_info progress() {
-        if(auto p = m_progress_info) {
-            return *p;
-        }
-        return http::progress_info();
+    http::progress progress() {
+        std::lock_guard<std::mutex> lock(m_progress_mutex);
+        return m_progress;
     }
 
     virtual void header(const char* ptr, size_t bytes) override {
@@ -308,7 +316,7 @@ http::response::~response() { }
 std::future<http::message>& http::response::data() { return m_impl->message_future; }
 http::operation http::response::operation() { return m_impl->m_operation; }
 http::request http::response::request() { return m_impl->m_request; }
-http::progress_info http::response::progress() { return m_impl->progress(); }
+http::progress http::response::progress() { return m_impl->progress(); }
 void http::response::cancel() { m_impl->cancel(); }
 
 
@@ -361,7 +369,7 @@ http::response http::client::request(
 }
 
 void http::client::request_stream(
-    std::function<bool(http::message data, http::progress_info progress)> receive_cb,
+    std::function<bool(http::message data, http::progress progress)> receive_cb,
     http::request req,
     http::operation op,
     http::headers headers,

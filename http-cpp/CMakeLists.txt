@@ -31,7 +31,7 @@ add_library(
 	message.hpp
 	operation.cpp
 	operation.hpp
-	progress_info.hpp
+	progress.hpp
 	status.cpp
 	status.hpp
 	response.hpp

@@ -29,8 +29,8 @@
 
 namespace http {
 
-    struct progress_info {
-        progress_info(
+    struct progress {
+        progress(
             size_t dlCur = 0, size_t dlTot = 0, size_t dlSpd = 0,
             size_t ulCur = 0, size_t ulTot = 0, size_t upSpd = 0
         ) :
