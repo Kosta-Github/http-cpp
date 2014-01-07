@@ -43,13 +43,13 @@ namespace http {
         void wait_all();
 
         template<typename DURATION>
-        inline auto wait_all_for(DURATION&& duration) -> decltype(std::future::wait_for(duration)) {
+        inline auto wait_all_for(DURATION&& duration) -> decltype(std::future_status::ready) {
             auto timeout_time = std::chrono::system_clock::now() + duration;
             return wait_all_until(timeout_time);
         }
 
         template<typename TIMEOUT_TIME>
-        inline auto wait_all_until(TIMEOUT_TIME&& timeout_time) -> decltype(std::future::wait_until(timeout_time)) {
+        inline auto wait_all_until(TIMEOUT_TIME&& timeout_time) -> decltype(std::future_status::ready) {
             for(auto&& r : m_responses) {
                 if(r.data().wait_until(timeout_time) != std::future_status::ready) {
                     return std::future_status::timeout;
