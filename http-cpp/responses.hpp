@@ -23,11 +23,7 @@
 
 #pragma once
 
-#include "message.hpp"
-#include "operation.hpp"
-#include "progress.hpp"
-
-#include <future>
+#include "response.hpp"
 
  // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
 #if defined(_MSC_VER)
@@ -37,22 +33,33 @@
 
 namespace http {
 
-    typedef std::string request;
+    struct HTTP_API responses {
+        http::response add(http::response response);
 
-    struct HTTP_API response {
-        std::shared_future<http::message>& data();
+        http::progress progress_all() const;
 
-        http::operation operation() const;
-        http::request request() const;
+        void cancel_all();
 
-        http::progress progress() const;
+        void wait_all();
 
-        void cancel();
+        template<typename DURATION>
+        inline auto wait_all_for(DURATION&& duration) -> decltype(std::future::wait_for(duration)) {
+            auto timeout_time = std::chrono::system_clock::now() + duration;
+            return wait_all_until(timeout_time);
+        }
+
+        template<typename TIMEOUT_TIME>
+        inline auto wait_all_until(TIMEOUT_TIME&& timeout_time) -> decltype(std::future::wait_until(timeout_time)) {
+            for(auto&& r : m_responses) {
+                if(r.data().wait_until(timeout_time) != std::future_status::ready) {
+                    return std::future_status::timeout;
+                }
+            }
+            return std::future_status::ready;
+        }
 
     private:
-        friend struct client;
-        struct impl;
-        std::shared_ptr<impl> m_impl;
+        std::vector<http::response> m_responses;
     };
 
 } // namespace http

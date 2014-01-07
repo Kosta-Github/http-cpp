@@ -108,8 +108,9 @@ struct http::response::impl :
         std::string data_content_type
     ) :
         curl_easy_wrap(),
-        message_future(message_promise.get_future()),
-        message(http::HTTP_REQUEST_PROGRESS, http::HTTP_000_UNKNOWN),
+        m_message_promise(),
+        m_message_future(m_message_promise.get_future().share()),
+        m_message_accum(http::HTTP_REQUEST_PROGRESS, http::HTTP_000_UNKNOWN),
         finished_future(finished_promise.get_future()),
         m_cancel(false),
         m_request(std::move(req)),
@@ -130,9 +131,9 @@ struct http::response::impl :
     }
 
 public:
-    std::promise<http::message>  message_promise;
-    std::future<http::message>   message_future;
-    http::message                message;
+    std::promise<http::message>         m_message_promise;
+    std::shared_future<http::message>   m_message_future;
+    http::message                       m_message_accum;
 
     std::promise<void>  finished_promise;
     std::future<void>   finished_future;
@@ -157,12 +158,12 @@ public:
         if(m_cancel) { return true; }
 
         // add data to the end of the receive/message buffer
-        message.body.insert(message.body.end(), ptr, ptr + bytes);
+        m_message_accum.body.insert(m_message_accum.body.end(), ptr, ptr + bytes);
 
         if(m_receive_cb) {
             // call the receive callback with the received data immediately
-            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, message.headers, std::move(message.body));
-            message.body.clear(); // ensure that the receive/message buffer is in a defined state again
+            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers, std::move(m_message_accum.body));
+            m_message_accum.body.clear(); // ensure that the receive/message buffer is in a defined state again
 
             // call the callback and check for cancelation
             auto proceed = m_receive_cb(std::move(msg), progress());
@@ -197,7 +198,7 @@ public:
         }
 
         if(m_receive_cb) {
-            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, message.headers);
+            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers);
             auto proceed = m_receive_cb(std::move(msg), progress());
             if(!proceed) { m_cancel = true; }
         }
@@ -223,7 +224,7 @@ public:
         auto str = std::string(ptr, ptr + bytes);
         auto pos = str.find(": ");
         if(pos != str.npos) {
-            message.headers[str.substr(0, pos)] = str.substr(pos + 2);
+            m_message_accum.headers[str.substr(0, pos)] = str.substr(pos + 2);
         }
     }
 
@@ -241,19 +242,19 @@ public:
             error = http::HTTP_REQUEST_CANCELED;
         }
 
-        message.error_code  = error;
-        message.status      = static_cast<http::status>(status);
+        m_message_accum.error_code  = error;
+        m_message_accum.status      = static_cast<http::status>(status);
 
         // call the receive callback a last time with the final
         // error code
         if(m_receive_cb) {
-            assert(message.body.empty());
-            m_receive_cb(message, progress());
+            assert(m_message_accum.body.empty());
+            m_receive_cb(m_message_accum, progress());
         }
 
         // set the final message data so it can be retrieved
         // with the message-future object in the response object
-        message_promise.set_value(std::move(message));
+        m_message_promise.set_value(std::move(m_message_accum));
 
         // call an optional continuation callback for this request
         if(m_continue_cb) {
@@ -308,15 +309,10 @@ public:
     }
 };
 
-http::response::response() : m_impl(nullptr) { }
-http::response::response(response&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
-http::response& http::response::operator=(response&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
-http::response::~response() { }
-
-std::future<http::message>& http::response::data() { return m_impl->message_future; }
-http::operation http::response::operation() { return m_impl->m_operation; }
-http::request http::response::request() { return m_impl->m_request; }
-http::progress http::response::progress() { return m_impl->progress(); }
+std::shared_future<http::message>& http::response::data() { return m_impl->m_message_future; }
+http::operation http::response::operation() const { return m_impl->m_operation; }
+http::request http::response::request() const { return m_impl->m_request; }
+http::progress http::response::progress() const { return m_impl->progress(); }
 void http::response::cancel() { m_impl->cancel(); }
 
 
