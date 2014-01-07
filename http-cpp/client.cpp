@@ -118,8 +118,7 @@ struct http::response::impl :
         m_send_data(std::move(send_data)),
         m_send_data_content_type(std::move(data_content_type)),
         m_send_progress(0),
-        progressDownCur(0), progressDownTotal(0), speedDown(0),
-        progressUpCur(0),   progressUpTotal(0),   speedUp(0)
+        m_progress_info()
     {
         curl_easy_setopt(handle, CURLOPT_URL, m_request.c_str());
         curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
@@ -149,8 +148,7 @@ public:
     std::function<bool(http::message, http::progress_info)> m_receive_cb;
     std::function<void()> m_continue_cb;
 
-    std::atomic<size_t> progressDownCur,    progressDownTotal,  speedDown;
-    std::atomic<size_t> progressUpCur,      progressUpTotal,    speedUp;
+    std::shared_ptr<http::progress_info> m_progress_info;
 
 public:
     virtual bool write(const char* ptr, size_t bytes) override {
@@ -186,8 +184,7 @@ public:
         size_t downTotal, size_t downCur, size_t downSpeed,
         size_t upTotal,   size_t upCur,   size_t upSpeed
     ) override {
-        progressDownCur = downCur;  progressDownTotal   = downTotal; speedDown = downSpeed;
-        progressUpCur   = upCur;    progressUpTotal     = upTotal;   speedUp   = upSpeed;
+        m_progress_info = std::make_shared<http::progress_info>(downCur, downTotal, downSpeed, upCur, upTotal, upSpeed);
 
         if(m_receive_cb) {
             http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, message.headers);
@@ -199,10 +196,10 @@ public:
     }
 
     http::progress_info progress() {
-        return http::progress_info(
-            progressDownCur, progressDownTotal, speedDown,
-            progressUpCur, progressUpTotal, speedUp
-        );
+        if(auto p = m_progress_info) {
+            return *p;
+        }
+        return http::progress_info();
     }
 
     virtual void header(const char* ptr, size_t bytes) override {
