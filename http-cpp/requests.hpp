@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "response.hpp"
+#include "request.hpp"
 
  // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
 #if defined(_MSC_VER)
@@ -33,24 +33,58 @@
 
 namespace http {
 
-    struct HTTP_API responses {
-        http::response add(http::response response);
+    /// This helper class 'requests' can be used to track a set of HTTP requests
+    /// in order to treat them as group. This allows to cancel all tracked ...
+    struct HTTP_API requests {
 
+        /// Forward this call 'request()' call to the given 'client' object,
+        /// add the created 'request' object to this list, and return it
+        /// also back to the caller.
+        http::request request(
+            http::client&   client,
+            http::url       url,
+            http::operation op                  = http::HTTP_GET,
+            http::headers   headers             = http::headers(),
+            http::buffer    send_data           = http::buffer(),
+            std::string     data_content_type   = "application/octet-stream"
+        );
+
+        /// Forward this call 'request()' call to the given 'client' object,
+        /// add the created 'request' object to this list, and return it
+        /// also back to the caller.
+        http::request request(
+            http::client&   client,
+            std::function<void(http::request req)> continuationWith,
+            http::url       url,
+            http::operation op                  = http::HTTP_GET,
+            http::headers   headers             = http::headers(),
+            http::buffer    send_data           = http::buffer(),
+            std::string     data_content_type   = "application/octet-stream"
+        );
+
+        /// Adds the given 'req' object to the list of tracked requests.
+        http::request add(http::request req);
+
+        /// Returns the current progress information for all tracked requests.
         http::progress progress_all() const;
 
+        /// Cancels all tracked requests.
         void cancel_all();
 
+        /// Waits for all tracked requests to finish.
         void wait_all();
 
+        /// Waits for all tracked requests to finish using the given timeout duration.
         template<typename DURATION>
         inline auto wait_all_for(DURATION&& duration) -> decltype(std::future_status::ready) {
             auto timeout_time = std::chrono::system_clock::now() + duration;
             return wait_all_until(timeout_time);
         }
 
+        /// Waits for all tracked requests to finish using the given absolute timeout time.
         template<typename TIMEOUT_TIME>
         inline auto wait_all_until(TIMEOUT_TIME&& timeout_time) -> decltype(std::future_status::ready) {
-            for(auto&& r : m_responses) {
+            for(auto&& r : reqs) {
                 if(r.data().wait_until(timeout_time) != std::future_status::ready) {
                     return std::future_status::timeout;
                 }
@@ -58,8 +92,8 @@ namespace http {
             return std::future_status::ready;
         }
 
-    private:
-        std::vector<http::response> m_responses;
+        /// Provide direct access to the list of tracked requests.
+        std::vector<http::request> reqs;
     };
 
 } // namespace http

@@ -34,9 +34,9 @@ add_library(
 	progress.hpp
 	status.cpp
 	status.hpp
-	response.hpp
-	responses.cpp
-	responses.hpp
+	request.hpp
+	requests.cpp
+	requests.hpp
 	utils.hpp
 	impl/curl_easy_wrap.hpp
 	impl/curl_global_init_wrap.hpp

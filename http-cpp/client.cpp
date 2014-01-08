@@ -96,12 +96,12 @@ std::string http::unescape(
 }
 
 
-struct http::response::impl :
+struct http::request::impl :
     public http::impl::curl_easy_wrap,
     public std::enable_shared_from_this<impl>
 {
     impl(
-        http::request req,
+        http::url url,
         http::operation op,
         http::headers headers,
         http::buffer send_data,
@@ -113,7 +113,7 @@ struct http::response::impl :
         m_message_accum(http::HTTP_REQUEST_PROGRESS, http::HTTP_000_UNKNOWN),
         finished_future(finished_promise.get_future()),
         m_cancel(false),
-        m_request(std::move(req)),
+        m_url(std::move(url)),
         m_operation(op),
         m_send_headers(std::move(headers)),
         m_send_data(std::move(send_data)),
@@ -122,7 +122,7 @@ struct http::response::impl :
         m_progress_mutex(),
         m_progress()
     {
-        curl_easy_setopt(handle, CURLOPT_URL, m_request.c_str());
+        curl_easy_setopt(handle, CURLOPT_URL, m_url.c_str());
         curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
     }
 
@@ -140,7 +140,7 @@ public:
 
     std::atomic<bool>   m_cancel;
 
-    http::request   m_request;
+    http::url       m_url;
     http::operation m_operation;
     http::headers   m_send_headers;
     http::buffer    m_send_data;
@@ -309,11 +309,11 @@ public:
     }
 };
 
-std::shared_future<http::message>& http::response::data() { return m_impl->m_message_future; }
-http::operation http::response::operation() const { return m_impl->m_operation; }
-http::request http::response::request() const { return m_impl->m_request; }
-http::progress http::response::progress() const { return m_impl->progress(); }
-void http::response::cancel() { m_impl->cancel(); }
+std::shared_future<http::message>& http::request::data() { return m_impl->m_message_future; }
+http::operation http::request::operation() const { return m_impl->m_operation; }
+http::url http::request::url() const { return m_impl->m_url; }
+http::progress http::request::progress() const { return m_impl->progress(); }
+void http::request::cancel() { m_impl->cancel(); }
 
 
 struct http::client::impl { };
@@ -323,35 +323,35 @@ http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap
 http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
 http::client::~client() { delete m_impl; }
     
-http::response http::client::request(
-    http::request req,
+http::request http::client::request(
+    http::url url,
     http::operation op,
     http::headers headers,
     http::buffer send_data,
     std::string data_content_type
 ) {
     return request(
-        nullptr, std::move(req), std::move(op),
+        nullptr, std::move(url), std::move(op),
         std::move(headers), std::move(send_data), std::move(data_content_type)
     );
 }
 
-http::response http::client::request(
-    std::function<void(http::response response)> continuationWith,
-    http::request req,
+http::request http::client::request(
+    std::function<void(http::request req)> continuationWith,
+    http::url url,
     http::operation op,
     http::headers headers,
     http::buffer send_data,
     std::string data_content_type
 ) {
-    auto res_impl = std::make_shared<http::response::impl>(
-        std::move(req), std::move(op), std::move(headers),
+    auto res_impl = std::make_shared<http::request::impl>(
+        std::move(url), std::move(op), std::move(headers),
         std::move(send_data), std::move(data_content_type)
     );
 
     if(continuationWith) {
         res_impl->m_continue_cb = [=]() {
-            auto response = http::response();
+            auto response = http::request();
             response.m_impl = res_impl;
             continuationWith(std::move(response));
         };
@@ -359,14 +359,14 @@ http::response http::client::request(
 
     res_impl->request();
 
-    auto response = http::response();
-    response.m_impl = res_impl;
-    return response;
+    auto req = http::request();
+    req.m_impl = res_impl;
+    return req;
 }
 
 void http::client::request_stream(
     std::function<bool(http::message data, http::progress progress)> receive_cb,
-    http::request req,
+    http::url url,
     http::operation op,
     http::headers headers,
     http::buffer send_data,
@@ -374,8 +374,8 @@ void http::client::request_stream(
 ) {
     assert(receive_cb);
 
-    auto res_impl = std::make_shared<http::response::impl>(
-        std::move(req), std::move(op), std::move(headers),
+    auto res_impl = std::make_shared<http::request::impl>(
+        std::move(url), std::move(op), std::move(headers),
         std::move(send_data), std::move(data_content_type)
     );
 

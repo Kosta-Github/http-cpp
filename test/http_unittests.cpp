@@ -24,6 +24,7 @@
 #include <catch/catch.hpp>
 
 #include <http-cpp/client.hpp>
+#include <http-cpp/requests.hpp>
 #include <http-cpp/utils.hpp>
 
 #include <atomic>
@@ -100,27 +101,26 @@ CATCH_TEST_CASE(
 
 static void perform_parallel_requests(
     const size_t count,
-    const std::string url,
+    const http::url url,
     const http::error_code expected_error_code,
     const http::status expected_status,
     const std::string& expected_message
 ) {
     auto client = http::client();
-    auto request = http::request(url);
+    auto reqs = http::requests();
 
-    auto responses = std::vector<http::response>(count);
     for(size_t i = 0; i < count; ++i) {
-        responses[i] = client.request(request);
+        reqs.request(client, url);
     }
 
     for(size_t i = 0; i < count; ++i) {
-        auto data = responses[i].data().get();
+        auto data = reqs.reqs[i].data().get();
         CATCH_CHECK(data.error_code == expected_error_code);
         CATCH_CHECK(data.status == expected_status);
         CATCH_CHECK(message(data.body) == expected_message);
     }
 
-    http::client::cancel_all();
+    reqs.cancel_all();
 }
 
 CATCH_TEST_CASE(
@@ -151,11 +151,10 @@ CATCH_TEST_CASE(
 
 static void perform_parallel_stream_requests(
     const int count,
-    const std::string& url,
+    const http::url& url,
     const http::status expected_status
 ) {
     auto client = http::client();
-    auto request = http::request(url);
 
     std::atomic<int> active_count(count);
 
@@ -178,7 +177,7 @@ static void perform_parallel_stream_requests(
             return true;
         };
         
-        client.request_stream(cb, request, http::HTTP_GET);
+        client.request_stream(cb, url, http::HTTP_GET);
     }
 
     while(active_count > 0) {

@@ -37,13 +37,13 @@
 
 namespace http {
 
-    typedef std::string request;
+    typedef std::string url;
 
-    struct HTTP_API response {
+    struct HTTP_API request {
         std::shared_future<http::message>& data();
 
         http::operation operation() const;
-        http::request request() const;
+        http::url url() const;
 
         http::progress progress() const;
 

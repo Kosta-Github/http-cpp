@@ -21,22 +21,53 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#include "responses.hpp"
+#include "client.hpp"
+#include "requests.hpp"
 
-http::response http::responses::add(
-    http::response response
+http::request http::requests::request(
+    http::client&   client,
+    http::url       url,
+    http::operation op,
+    http::headers   headers,
+    http::buffer    send_data,
+    std::string     data_content_type
 ) {
-    m_responses.emplace_back(response);
-    return response;
+    return add(client.request(
+        std::move(url), std::move(op),
+        std::move(headers), std::move(send_data), std::move(data_content_type)
+    ));
 }
 
-http::progress http::responses::progress_all() const {
+http::request http::requests::request(
+    http::client&   client,
+    std::function<void(http::request req)> continuationWith,
+    http::url       url,
+    http::operation op,
+    http::headers   headers,
+    http::buffer    send_data,
+    std::string     data_content_type
+) {
+    return add(client.request(
+        std::move(continuationWith),
+        std::move(url), std::move(op),
+        std::move(headers), std::move(send_data), std::move(data_content_type)
+    ));
+}
+
+http::request http::requests::add(
+    http::request req
+) {
+    reqs.emplace_back(req);
+    return req;
+}
+
+http::progress http::requests::progress_all() const {
     http::progress result;
 
     bool downTotalValid = true;
     bool upTotalValid   = true;
 
-    for(auto&& r : m_responses) {
+    for(auto&& r : reqs) {
         auto p = r.progress();
 
         result.downloadCurrentBytes += p.downloadCurrentBytes;
@@ -57,14 +88,14 @@ http::progress http::responses::progress_all() const {
     return result;
 }
 
-void http::responses::cancel_all() {
-    for(auto&& r : m_responses) {
+void http::requests::cancel_all() {
+    for(auto&& r : reqs) {
         r.cancel();
     }
 }
 
-void http::responses::wait_all() {
-    for(auto&& r : m_responses) {
+void http::requests::wait_all() {
+    for(auto&& r : reqs) {
         r.data().wait();
     }
 }
