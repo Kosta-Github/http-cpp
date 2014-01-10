@@ -29,6 +29,8 @@
 #include "impl/curl_multi_wrap.hpp"
 #include "impl/curl_share_wrap.hpp"
 
+#include <cstring>
+
 #undef min
 #undef max
 
