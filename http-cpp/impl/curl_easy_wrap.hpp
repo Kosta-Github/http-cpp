@@ -87,15 +87,10 @@ namespace http {
             virtual void   cancel() = 0;
 
         public:
-            void prepare() {
-                if(headers) {
-                    curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
-                }
-            }
-
             void add_header(std::string const& key, std::string const& value) {
                 std::string combined = key + ": " + value;
                 headers = curl_slist_append(headers, combined.c_str());
+                curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
             }
 
         private:

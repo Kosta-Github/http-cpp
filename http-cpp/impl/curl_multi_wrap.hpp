@@ -86,8 +86,6 @@ namespace http {
                 assert(m_active_handles[handle] == nullptr);
                 m_active_handles[handle] = wrap;
 
-                wrap->prepare();
-
                 curl_multi_add_handle(m_multi, handle);
             }
 
