@@ -99,6 +99,70 @@ CATCH_TEST_CASE(
     CATCH_CHECK(data.error_code > 0);
 }
 
+CATCH_TEST_CASE(
+    "Tests a GET request for a localhost web-server",
+    "[http][request][GET][localhost]"
+) {
+    auto url = LOCALHOST + "get_request";
+    auto data = http::client().request(url, http::HTTP_GET).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    CATCH_CHECK(message(data.body) == "GET received");
+}
+
+CATCH_TEST_CASE(
+    "Tests a HEAD request for a localhost web-server",
+    "[http][request][HEAD][localhost]"
+) {
+    auto url = LOCALHOST + "head_request";
+    auto data = http::client().request(url, http::HTTP_HEAD).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    CATCH_CHECK(data.body.empty()); // the body needs to be empty for a HEAD request
+}
+
+/*
+CATCH_TEST_CASE(
+    "Tests a POST request for a localhost web-server",
+    "[http][request][POST][localhost]"
+) {
+    auto url = LOCALHOST + "post_request";
+    auto data = http::client().request(url, http::HTTP_POST).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    CATCH_CHECK(message(data.body) == "POST received");
+}
+*/
+
+CATCH_TEST_CASE(
+    "Tests a PUT request for a localhost web-server",
+    "[http][request][PUT][localhost]"
+) {
+    auto url = LOCALHOST + "put_request";
+    auto put_data = std::string("I am the PUT workload!");
+    auto put_buffer = std::vector<char>(put_data.begin(), put_data.end());
+    auto data = http::client().request(url, http::HTTP_PUT, http::headers(), put_buffer).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    CATCH_CHECK(message(data.body) == "PUT received: " + put_data);
+}
+
+CATCH_TEST_CASE(
+    "Tests a DELETE request for a localhost web-server",
+    "[http][request][DELETE][localhost]"
+) {
+    auto url = LOCALHOST + "delete_request";
+    auto data = http::client().request(url, http::HTTP_DELETE).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    CATCH_CHECK(message(data.body) == "DELETE received");
+}
+
 static void perform_parallel_requests(
     const size_t count,
     const http::url url,

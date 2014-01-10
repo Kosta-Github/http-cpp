@@ -47,7 +47,8 @@ namespace http {
 
         public:
             void set_default_values() {
-                // curl_easy_setopt(global_easy.handle, CURLOPT_VERBOSE, 1);
+//                curl_easy_setopt(global_easy.handle, CURLOPT_VERBOSE, 1);
+
                 curl_easy_setopt(handle, CURLOPT_AUTOREFERER, 1);
                 curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, ""); // accept all supported encodings
                 curl_easy_setopt(handle, CURLOPT_HTTP_CONTENT_DECODING, 1);
@@ -60,47 +61,53 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_PRIVATE, this);
                 curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_stub);
                 curl_easy_setopt(handle, CURLOPT_WRITEDATA, this);
-                curl_easy_setopt(handle, CURLOPT_READFUNCTION, write_stub);
+                curl_easy_setopt(handle, CURLOPT_READFUNCTION, read_stub);
                 curl_easy_setopt(handle, CURLOPT_READDATA, this);
                 curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, header_stub);
                 curl_easy_setopt(handle, CURLOPT_HEADERDATA, this);
-                // curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION, progress_stub);
-                // curl_easy_setopt(handle, CURLOPT_XFERINFODATA, this);
+#if (LIBCURL_VERSION_NUM >= 0x072000)
+                curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION, progress_stub);
+                curl_easy_setopt(handle, CURLOPT_XFERINFODATA, this);
+#else // (LIBCURL_VERSION_NUM >= 0x072000)
                 curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, progress_stub);
                 curl_easy_setopt(handle, CURLOPT_PROGRESSDATA, this);
+#endif // (LIBCURL_VERSION_NUM >= 0x072000)
                 curl_easy_setopt(handle, CURLOPT_NOPROGRESS, 0);
             }
 
         public:
-            virtual bool   write(const char* ptr, size_t bytes) = 0;
-            virtual size_t read(char* ptr, size_t bytes) = 0;
-            virtual void   header(const char* ptr, size_t bytes) = 0;
+            virtual bool   write(const void* ptr, size_t bytes) = 0;
+            virtual size_t read(void* ptr, size_t bytes) = 0;
+            virtual void   header(const void* ptr, size_t bytes) = 0;
             virtual bool   progress(size_t downCur, size_t downTotal, size_t downSpeed, size_t upCur, size_t upTotal, size_t upSpeed) = 0;
-            virtual void   finish(CURLcode code, long status) = 0;
+            virtual void   finish(CURLcode code, int status) = 0;
             virtual void   cancel() = 0;
 
         private:
-            static size_t write_stub(char* ptr, size_t size, size_t nmemb, void* userdata) {
+            static size_t write_stub(void* ptr, size_t size, size_t nmemb, void* userdata) {
                 auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
                 auto bytes = size * nmemb;
                 return (wrap->write(ptr, bytes) ? bytes : 0);
             }
 
-            static  size_t read_stub(char* ptr, size_t size, size_t nmemb, void* userdata) {
+            static  size_t read_stub(void* ptr, size_t size, size_t nmemb, void* userdata) {
                 auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
                 auto bytes = size * nmemb;
                 return wrap->read(ptr, bytes);
             }
 
-            static size_t header_stub(char* ptr, size_t size, size_t nmemb, void* userdata) {
+            static size_t header_stub(void* ptr, size_t size, size_t nmemb, void* userdata) {
                 auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
                 auto bytes = size * nmemb;
                 wrap->header(ptr, bytes);
                 return bytes;
             }
 
-            // static int progress_function_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+#if (LIBCURL_VERSION_NUM >= 0x072000)
+            static int progress_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+#else // (LIBCURL_VERSION_NUM >= 0x072000)
             static int progress_stub(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
+#endif // (LIBCURL_VERSION_NUM >= 0x072000)
                 auto wrap = static_cast<curl_easy_wrap*>(clientp); assert(wrap);
 
                 double speedDown = 0.0, speedUp = 0.0;

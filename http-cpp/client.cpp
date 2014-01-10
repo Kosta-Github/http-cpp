@@ -29,9 +29,6 @@
 #include "impl/curl_multi_wrap.hpp"
 #include "impl/curl_share_wrap.hpp"
 
-// for testing purpose onyl
-#include <cstring>
-
 #undef min
 #undef max
 
@@ -154,11 +151,13 @@ public:
     http::progress  m_progress;
 
 public:
-    virtual bool write(const char* ptr, size_t bytes) override {
+    virtual bool write(const void* ptr, size_t bytes) override {
         if(m_cancel) { return true; }
 
+        auto data = static_cast<const char*>(ptr);
+
         // add data to the end of the receive/message buffer
-        m_message_accum.body.insert(m_message_accum.body.end(), ptr, ptr + bytes);
+        m_message_accum.body.insert(m_message_accum.body.end(), data, data + bytes);
 
         if(m_receive_cb) {
             // call the receive callback with the received data immediately
@@ -173,8 +172,10 @@ public:
         return true;
     }
 
-    virtual size_t read(char* ptr, size_t bytes) override {
+    virtual size_t read(void* ptr, size_t bytes) override {
         assert(m_send_progress <= m_send_data.size());
+
+        if(m_cancel) { return 0; }
 
         auto send_bytes = std::min(bytes, m_send_data.size() - m_send_progress);
         std::memcpy(ptr, m_send_data.data() + m_send_progress, send_bytes);
@@ -211,17 +212,19 @@ public:
         return m_progress;
     }
 
-    virtual void header(const char* ptr, size_t bytes) override {
+    virtual void header(const void* ptr, size_t bytes) override {
+        auto data = static_cast<const char*>(ptr);
+
         // strip off "CRLF" at the end
-        if((bytes > 0) && (ptr[bytes-1] == '\n')) { --bytes; }
-        if((bytes > 0) && (ptr[bytes-1] == '\r')) { --bytes; }
+        if((bytes > 0) && (data[bytes-1] == '\n')) { --bytes; }
+        if((bytes > 0) && (data[bytes-1] == '\r')) { --bytes; }
 
         // end of headers found
         if(bytes == 0) { return; }
 
         // try to extract the key-value pair; if found add it to
         // the message's headers object
-        auto str = std::string(ptr, ptr + bytes);
+        auto str = std::string(data, data + bytes);
         auto pos = str.find(": ");
         if(pos != str.npos) {
             m_message_accum.headers[str.substr(0, pos)] = str.substr(pos + 2);
@@ -236,7 +239,7 @@ public:
         global().add(shared_from_this());
     }
 
-    virtual void finish(CURLcode code, long status) override {
+    virtual void finish(CURLcode code, int status) override {
         auto error = static_cast<http::error_code>(code);
         if((error != http::HTTP_REQUEST_FINISHED) && m_cancel) {
             error = http::HTTP_REQUEST_CANCELED;
@@ -274,10 +277,10 @@ public:
     void request() {
         // dispatch the HTTP operation
         switch(m_operation) {
-            case http::HTTP_GET:    request_get();      break;
-            case http::HTTP_HEAD:   request_head();     break;
-            case http::HTTP_PUT:    request_put();      break;
-            case http::HTTP_DELETE: request_delete();   break;
+            case http::HTTP_GET:    request_get();      start(); break;
+            case http::HTTP_HEAD:   request_head();     start(); break;
+            case http::HTTP_PUT:    request_put();      start(); break;
+            case http::HTTP_DELETE: request_delete();   start(); break;
             case http::HTTP_POST:
             default:                finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
         }
@@ -285,19 +288,11 @@ public:
 
     void request_get() {
         curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
-        start();
     }
 
     void request_head() {
         curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
         curl_easy_setopt(handle, CURLOPT_NOBODY, 1);
-        start();
-    }
-
-    void request_delete() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
-        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-        start();
     }
 
     void request_put() {
@@ -305,7 +300,11 @@ public:
 
         curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
         curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE, size);
-        start();
+    }
+
+    void request_delete() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
     }
 };
 
