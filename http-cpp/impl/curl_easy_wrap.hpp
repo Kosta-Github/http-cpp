@@ -32,7 +32,8 @@ namespace http {
 
         struct curl_easy_wrap {
             curl_easy_wrap(CURL* master = nullptr) :
-                handle(master ? curl_easy_duphandle(master) : curl_easy_init())
+                handle(master ? curl_easy_duphandle(master) : curl_easy_init()),
+                headers(nullptr)
             {
                 assert(handle);
 
@@ -41,13 +42,15 @@ namespace http {
             }
 
             virtual ~curl_easy_wrap() {
+                curl_slist_free_all(headers);
+
                 assert(handle);
                 curl_easy_cleanup(handle);
             }
 
         public:
             void set_default_values() {
-//                curl_easy_setopt(global_easy.handle, CURLOPT_VERBOSE, 1);
+//                curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
                 curl_easy_setopt(handle, CURLOPT_AUTOREFERER, 1);
                 curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, ""); // accept all supported encodings
@@ -82,6 +85,18 @@ namespace http {
             virtual bool   progress(size_t downCur, size_t downTotal, size_t downSpeed, size_t upCur, size_t upTotal, size_t upSpeed) = 0;
             virtual void   finish(CURLcode code, int status) = 0;
             virtual void   cancel() = 0;
+
+        public:
+            void prepare() {
+                if(headers) {
+                    curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
+                }
+            }
+
+            void add_header(std::string const& key, std::string const& value) {
+                std::string combined = key + ": " + value;
+                headers = curl_slist_append(headers, combined.c_str());
+            }
 
         private:
             static size_t write_stub(void* ptr, size_t size, size_t nmemb, void* userdata) {
@@ -123,6 +138,7 @@ namespace http {
             
         public:
             CURL* const handle;
+            curl_slist* headers;
         };
 
     } // namespace impl

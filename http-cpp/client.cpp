@@ -234,6 +234,10 @@ public:
     }
 
     virtual void start() {
+        for(auto&& h : m_send_headers) {
+            add_header(h.first, h.second);
+        }
+
         // add this to the list of active requests which
         // actually handles the request in the send/receive
         // thread and also ensures that this object gets

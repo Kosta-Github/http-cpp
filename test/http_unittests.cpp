@@ -163,6 +163,26 @@ CATCH_TEST_CASE(
     CATCH_CHECK(message(data.body) == "DELETE received");
 }
 
+CATCH_TEST_CASE(
+    "Tests to round trip HTTP header data for a localhost web-server",
+    "[http][request][headers][localhost]"
+) {
+    auto url = LOCALHOST + "echo_headers";
+
+    auto headers_send = http::headers();
+    headers_send["http-cpp"] = "is cool";
+    headers_send["cool"]     = "is http-cpp";
+    auto data = http::client().request(url, http::HTTP_GET, headers_send).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+
+    auto headers_received = data.headers;
+    for(auto&& h : headers_send) {
+        CATCH_CHECK(h.second == headers_received[h.first]);
+    }
+}
+
 static void perform_parallel_requests(
     const size_t count,
     const http::url url,

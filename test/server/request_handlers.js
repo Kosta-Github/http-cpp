@@ -77,6 +77,14 @@ function register_handlers(handle) {
         response.end();
     }
 
+    handle["/echo_headers"] = function (request, response) {
+        var headers = request.headers;
+        headers["Content-Type"] = "text/plain";
+        response.writeHead(200, headers);
+        response.write("headers received");
+        response.end();
+    }
+
 }
 
 exports.register_handlers = register_handlers;
