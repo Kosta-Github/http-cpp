@@ -40,7 +40,7 @@ function register_handlers(handle) {
             response.writeHead(200, { "Content-Type": "text/plain" });
             response.write("response delayed");
             response.end();
-        }, 1000); // wait 1 second before responding
+        }, 3000); // wait 3 second before responding
     }
 
     handle["/get_request"] = function (request, response) {

@@ -100,9 +100,10 @@ struct http::request::impl :
     public std::enable_shared_from_this<impl>
 {
     impl(
+        http::client const& client,
         http::url url,
         http::operation op,
-        http::headers const& headers,
+        http::headers headers,
         http::buffer send_data
     ) :
         curl_easy_wrap(),
@@ -121,9 +122,16 @@ struct http::request::impl :
         curl_easy_setopt(handle, CURLOPT_URL, m_url.c_str());
         curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
 
+        // inserts headers already set in the client object; this will *not*
+        // replace/overwrite entries in the given req_headers object, only add
+        // new elements
+        headers.insert(client.headers.begin(), client.headers.end());
         for(auto&& h : headers) {
             add_header(h.first, h.second);
         }
+
+        curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, client.connect_timeout);
+        curl_easy_setopt(handle, CURLOPT_TIMEOUT, client.request_timeout);
     }
 
     virtual ~impl() {
@@ -318,9 +326,9 @@ void http::request::cancel() { m_impl->cancel(); }
 
 struct http::client::impl { };
 
-http::client::client() : m_impl(new impl()) { }
-http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
-http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
+http::client::client() : m_impl(new impl()), connect_timeout(300), request_timeout(0) { }
+http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr), connect_timeout(300), request_timeout(0) { operator=(std::move(o)); }
+http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); std::swap(connect_timeout, o.connect_timeout), std::swap(request_timeout, o.request_timeout); return *this; }
 http::client::~client() { delete m_impl; }
 
 http::request http::client::request(
@@ -341,13 +349,8 @@ http::request http::client::request(
     http::headers req_headers,
     http::buffer send_data
 ) {
-    // inserts headers already set in the client object; this will *not*
-    // replace/overwrite entries in the given req_headers object, only add
-    // new elements
-    req_headers.insert(headers.begin(), headers.end());
-
     auto res_impl = std::make_shared<http::request::impl>(
-        std::move(url), std::move(op), std::move(req_headers), std::move(send_data)
+        *this, std::move(url), std::move(op), std::move(req_headers), std::move(send_data)
     );
 
     if(continuationWith) {
@@ -374,13 +377,8 @@ void http::client::request_stream(
 ) {
     assert(receive_cb);
 
-    // inserts headers already set in the client object; this will *not*
-    // replace/overwrite entries in the given req_headers object, only add
-    // new elements
-    req_headers.insert(headers.begin(), headers.end());
-
     auto res_impl = std::make_shared<http::request::impl>(
-        std::move(url), std::move(op), std::move(headers), std::move(send_data)
+        *this, std::move(url), std::move(op), std::move(headers), std::move(send_data)
     );
 
     res_impl->m_receive_cb = std::move(receive_cb);

@@ -29,6 +29,21 @@
 
 #include <atomic>
 
+static inline void check_result(
+    http::message const& data,
+    std::string const& expected_body,
+    http::error_code const expected_error_code = http::HTTP_REQUEST_FINISHED,
+    http::status const expected_status = http::HTTP_200_OK
+) {
+    CATCH_CAPTURE(http::error_code_to_string(data.error_code));
+    CATCH_CHECK(data.error_code == expected_error_code);
+
+    CATCH_CAPTURE(http::status_to_string(data.status));
+    CATCH_CHECK(data.status == expected_status);
+
+    CATCH_CHECK(data.body == expected_body);
+}
+
 static const std::string LOCALHOST = "http://localhost:8888/";
 
 CATCH_TEST_CASE(
@@ -36,11 +51,7 @@ CATCH_TEST_CASE(
     "[http][request][200][localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_200_OK";
-    auto data = http::client().request(url).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(data.body == "URL found");
+    check_result(http::client().request(url).data().get(), "URL found");
 }
 
 CATCH_TEST_CASE(
@@ -48,15 +59,16 @@ CATCH_TEST_CASE(
     "[http][request][404][localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_404_NOT_FOUND";
-    auto data = http::client().request(url).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_404_NOT_FOUND);
-    CATCH_CHECK(data.body == "URL not found");
+    check_result(
+        http::client().request(url).data().get(),
+        "URL not found",
+        http::HTTP_REQUEST_FINISHED,
+        http::HTTP_404_NOT_FOUND
+    );
 }
 
 CATCH_TEST_CASE(
-    "Tests canceling a running requestfor a localhost web-server",
+    "Tests canceling a running request for a localhost web-server",
     "[http][request][cancel][localhost]"
 ) {
     auto start_time = std::chrono::system_clock::now();
@@ -67,10 +79,30 @@ CATCH_TEST_CASE(
     auto data = request.data().get();
 
     auto end_time = std::chrono::system_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
 
+    CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_CANCELED);
-    CATCH_CHECK(duration <= 500); // should be clearly below the 1 second the web server will delay to answer the request
+    CATCH_CHECK(duration < 3); // should be clearly below the 3 seconds the web server will delay to answer the request
+}
+
+CATCH_TEST_CASE(
+    "Tests request timeout for a localhost web-server",
+    "[http][request][timeout][localhost]"
+) {
+    auto start_time = std::chrono::system_clock::now();
+
+    auto url = LOCALHOST + "delay";
+    auto client = http::client();
+    client.request_timeout = 1; // 1 second timeout
+    auto data = client.request(url).data().get();
+
+    auto end_time = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+
+    CATCH_CAPTURE(http::error_code_to_string(data.error_code));
+    CATCH_CHECK(data.error_code > 0);
+    CATCH_CHECK(duration < 3); // should be clearly below the 3 second the web server will delay to answer the request
 }
 
 CATCH_TEST_CASE(
@@ -80,6 +112,7 @@ CATCH_TEST_CASE(
     auto url = "http://localhost:1/";
     auto data = http::client().request(url).data().get();
 
+    CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code > 0);
 }
 
@@ -90,6 +123,7 @@ CATCH_TEST_CASE(
     auto url = "http://abc.xyz/";
     auto data = http::client().request(url).data().get();
 
+    CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code > 0);
 }
 
@@ -98,11 +132,7 @@ CATCH_TEST_CASE(
     "[http][request][GET][localhost]"
 ) {
     auto url = LOCALHOST + "get_request";
-    auto data = http::client().request(url, http::HTTP_GET).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(data.body == "GET received");
+    check_result(http::client().request(url, http::HTTP_GET).data().get(), "GET received");
 }
 
 CATCH_TEST_CASE(
@@ -110,11 +140,7 @@ CATCH_TEST_CASE(
     "[http][request][HEAD][localhost]"
 ) {
     auto url = LOCALHOST + "head_request";
-    auto data = http::client().request(url, http::HTTP_HEAD).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(data.body.empty()); // the body needs to be empty for a HEAD request
+    check_result(http::client().request(url, http::HTTP_HEAD).data().get(), ""); // the body needs to be empty for a HEAD request
 }
 
 /*
@@ -123,11 +149,7 @@ CATCH_TEST_CASE(
     "[http][request][POST][localhost]"
 ) {
     auto url = LOCALHOST + "post_request";
-    auto data = http::client().request(url, http::HTTP_POST).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(data.body == "POST received");
+    check_result(http::client().request(url, http::HTTP_POST).data().get(), "POST received");
 }
 */
 
@@ -137,11 +159,7 @@ CATCH_TEST_CASE(
 ) {
     auto url = LOCALHOST + "put_request";
     auto put_data = std::string("I am the PUT workload!");
-    auto data = http::client().request(url, http::HTTP_PUT, http::headers(), put_data).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(data.body == ("PUT received: " + put_data));
+    check_result(http::client().request(url, http::HTTP_PUT, http::headers(), put_data).data().get(), "PUT received: " + put_data);
 }
 
 CATCH_TEST_CASE(
@@ -149,11 +167,7 @@ CATCH_TEST_CASE(
     "[http][request][DELETE][localhost]"
 ) {
     auto url = LOCALHOST + "delete_request";
-    auto data = http::client().request(url, http::HTTP_DELETE).data().get();
-
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(data.body == "DELETE received");
+    check_result(http::client().request(url, http::HTTP_DELETE).data().get(), "DELETE received");
 }
 
 CATCH_TEST_CASE(
@@ -167,8 +181,7 @@ CATCH_TEST_CASE(
     headers_req["cool"]     = "is http-cpp";
     auto data = http::client().request(url, http::HTTP_GET, headers_req).data().get();
 
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    check_result(data, "headers received");
 
     auto headers_received = data.headers;
     for(auto&& h : headers_req) {
@@ -195,8 +208,7 @@ CATCH_TEST_CASE(
     // perform the request
     auto data = client.request(url, http::HTTP_GET, headers_req).data().get();
 
-    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
-    CATCH_CHECK(data.status == http::HTTP_200_OK);
+    check_result(data, "headers received");
 
     // check that the server received (and echoed) both header entries
     auto headers_received = data.headers;
@@ -211,9 +223,9 @@ CATCH_TEST_CASE(
 static void perform_parallel_requests(
     const size_t count,
     const http::url url,
-    const http::error_code expected_error_code,
-    const http::status expected_status,
-    const std::string& expected_message
+    const std::string& expected_message,
+    const http::error_code expected_error_code = http::HTTP_REQUEST_FINISHED,
+    const http::status expected_status = http::HTTP_200_OK
 ) {
     auto client = http::client();
     auto reqs = http::requests();
@@ -223,10 +235,7 @@ static void perform_parallel_requests(
     }
 
     for(size_t i = 0; i < count; ++i) {
-        auto data = reqs.reqs[i].data().get();
-        CATCH_CHECK(data.error_code == expected_error_code);
-        CATCH_CHECK(data.status == expected_status);
-        CATCH_CHECK(data.body == expected_message);
+        check_result(reqs.reqs[i].data().get(), expected_message, expected_error_code, expected_status);
     }
 
     reqs.cancel_all();
@@ -236,32 +245,26 @@ CATCH_TEST_CASE(
     "Test multiple parallel requests against localhost web-server",
     "[http][requests][200][localhost]"
 ) {
-    perform_parallel_requests(
-        10,
-        LOCALHOST + "HTTP_200_OK",
-        http::HTTP_REQUEST_FINISHED,
-        http::HTTP_200_OK,
-        "URL found"
-    );
+    auto url = LOCALHOST + "HTTP_200_OK";
+    perform_parallel_requests(10, url, "URL found");
 }
 
 CATCH_TEST_CASE(
     "Test multiple parallel requests against localhost web-server for a non-existing URL",
     "[http][requests][404][localhost]"
 ) {
+    auto url = LOCALHOST + "HTTP_404_NOT_FOUND";
     perform_parallel_requests(
-        10,
-        LOCALHOST + "HTTP_404_NOT_FOUND",
+        10, url, "URL not found",
         http::HTTP_REQUEST_FINISHED,
-        http::HTTP_404_NOT_FOUND,
-        "URL not found"
+        http::HTTP_404_NOT_FOUND
     );
 }
 
 static void perform_parallel_stream_requests(
     const int count,
     const http::url& url,
-    const http::status expected_status
+    const http::status expected_status = http::HTTP_200_OK
 ) {
     auto client = http::client();
 
@@ -300,17 +303,32 @@ CATCH_TEST_CASE(
     "Test multiple parallel streaming requests against localhost web-server",
     "[http][requests][stream][localhost]"
 ) {
-    perform_parallel_stream_requests(10, LOCALHOST + "stream", http::HTTP_200_OK);
+    auto url = LOCALHOST + "get_request";
+    perform_parallel_stream_requests(10, url);
 }
 
 CATCH_TEST_CASE(
     "Test multiple parallel streaming requests against google server",
     "[http][requests][stream][google]"
 ) {
-    perform_parallel_stream_requests(10, "https://www.google.com/?gws_rd=cr#q=Autodesk", http::HTTP_200_OK);
+    auto url = "https://www.google.com/?gws_rd=cr#q=Autodesk";
+    perform_parallel_stream_requests(10, url);
 }
 
 
+CATCH_TEST_CASE(
+    "Check the default value for the 'connect timeout'",
+    "[http][client][connect][timeout][default]"
+) {
+    CATCH_CHECK(http::client().connect_timeout == 300);
+}
+
+CATCH_TEST_CASE(
+    "Check the default value for the 'request timeout'",
+    "[http][client][request][timeout][default]"
+) {
+    CATCH_CHECK(http::client().request_timeout == 0);
+}
 
 CATCH_TEST_CASE(
     "test http::escape()",

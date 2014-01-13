@@ -39,6 +39,15 @@ namespace http {
         /// from this client.
         http::headers headers;
 
+        /// Specifies the maximum time in seconds that a connect is
+        /// allowed to get established. Default value is 300 seconds.
+        size_t connect_timeout;
+
+        /// Specifies the maximum time in seconds that a whole request
+        /// can run before it times out. Set to 0 if no timeout should
+        /// be used (default).
+        size_t request_timeout;
+
         /// Starts the request and returns immediately.
         /// The result can be polled from the message-future
         /// object contained in the returned request object.
