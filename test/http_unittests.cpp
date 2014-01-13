@@ -31,12 +31,6 @@
 
 static const std::string LOCALHOST = "http://localhost:8888/";
 
-static inline std::string message(
-    const std::vector<char>& buffer
-) {
-    return std::string(buffer.begin(), buffer.end());
-}
-
 CATCH_TEST_CASE(
     "Tests HTTP_200_OK status for a localhost web-server",
     "[http][request][200][localhost]"
@@ -46,7 +40,7 @@ CATCH_TEST_CASE(
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(message(data.body) == "URL found");
+    CATCH_CHECK(data.body == "URL found");
 }
 
 CATCH_TEST_CASE(
@@ -58,7 +52,7 @@ CATCH_TEST_CASE(
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_404_NOT_FOUND);
-    CATCH_CHECK(message(data.body) == "URL not found");
+    CATCH_CHECK(data.body == "URL not found");
 }
 
 CATCH_TEST_CASE(
@@ -108,7 +102,7 @@ CATCH_TEST_CASE(
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(message(data.body) == "GET received");
+    CATCH_CHECK(data.body == "GET received");
 }
 
 CATCH_TEST_CASE(
@@ -133,7 +127,7 @@ CATCH_TEST_CASE(
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(message(data.body) == "POST received");
+    CATCH_CHECK(data.body == "POST received");
 }
 */
 
@@ -143,12 +137,11 @@ CATCH_TEST_CASE(
 ) {
     auto url = LOCALHOST + "put_request";
     auto put_data = std::string("I am the PUT workload!");
-    auto put_buffer = std::vector<char>(put_data.begin(), put_data.end());
-    auto data = http::client().request(url, http::HTTP_PUT, http::headers(), put_buffer).data().get();
+    auto data = http::client().request(url, http::HTTP_PUT, http::headers(), put_data).data().get();
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(message(data.body) == "PUT received: " + put_data);
+    CATCH_CHECK(data.body == ("PUT received: " + put_data));
 }
 
 CATCH_TEST_CASE(
@@ -160,7 +153,7 @@ CATCH_TEST_CASE(
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_200_OK);
-    CATCH_CHECK(message(data.body) == "DELETE received");
+    CATCH_CHECK(data.body == "DELETE received");
 }
 
 CATCH_TEST_CASE(
@@ -201,7 +194,7 @@ static void perform_parallel_requests(
         auto data = reqs.reqs[i].data().get();
         CATCH_CHECK(data.error_code == expected_error_code);
         CATCH_CHECK(data.status == expected_status);
-        CATCH_CHECK(message(data.body) == expected_message);
+        CATCH_CHECK(data.body == expected_message);
     }
 
     reqs.cancel_all();

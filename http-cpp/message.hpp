@@ -32,7 +32,7 @@
 
 namespace http {
 
-    typedef std::vector<char> buffer;
+    typedef std::string buffer;
     typedef std::map<std::string, std::string> headers;
 
     struct message {
