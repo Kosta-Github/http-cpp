@@ -29,12 +29,10 @@ http::request http::requests::request(
     http::url       url,
     http::operation op,
     http::headers   headers,
-    http::buffer    send_data,
-    std::string     data_content_type
+    http::buffer    send_data
 ) {
     return add(client.request(
-        std::move(url), std::move(op),
-        std::move(headers), std::move(send_data), std::move(data_content_type)
+        std::move(url), std::move(op), std::move(headers), std::move(send_data)
     ));
 }
 
@@ -44,13 +42,11 @@ http::request http::requests::request(
     http::url       url,
     http::operation op,
     http::headers   headers,
-    http::buffer    send_data,
-    std::string     data_content_type
+    http::buffer    send_data
 ) {
     return add(client.request(
         std::move(continuationWith),
-        std::move(url), std::move(op),
-        std::move(headers), std::move(send_data), std::move(data_content_type)
+        std::move(url), std::move(op), std::move(headers), std::move(send_data)
     ));
 }
 

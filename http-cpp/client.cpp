@@ -102,9 +102,8 @@ struct http::request::impl :
     impl(
         http::url url,
         http::operation op,
-        http::headers headers,
-        http::buffer send_data,
-        std::string data_content_type
+        http::headers const& headers,
+        http::buffer send_data
     ) :
         curl_easy_wrap(),
         m_message_promise(),
@@ -114,15 +113,17 @@ struct http::request::impl :
         m_cancel(false),
         m_url(std::move(url)),
         m_operation(op),
-        m_send_headers(std::move(headers)),
         m_send_data(std::move(send_data)),
-        m_send_data_content_type(std::move(data_content_type)),
         m_send_progress(0),
         m_progress_mutex(),
         m_progress()
     {
         curl_easy_setopt(handle, CURLOPT_URL, m_url.c_str());
         curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
+
+        for(auto&& h : headers) {
+            add_header(h.first, h.second);
+        }
     }
 
     virtual ~impl() {
@@ -141,9 +142,7 @@ public:
 
     http::url       m_url;
     http::operation m_operation;
-    http::headers   m_send_headers;
     http::buffer    m_send_data;
-    std::string     m_send_data_content_type;
     size_t          m_send_progress;
 
     std::function<bool(http::message, http::progress)>  m_receive_cb;
@@ -234,10 +233,6 @@ public:
     }
 
     virtual void start() {
-        for(auto&& h : m_send_headers) {
-            add_header(h.first, h.second);
-        }
-
         // add this to the list of active requests which
         // actually handles the request in the send/receive
         // thread and also ensures that this object gets
@@ -327,17 +322,15 @@ http::client::client() : m_impl(new impl()) { }
 http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr) { std::swap(m_impl, o.m_impl); }
 http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); return *this; }
 http::client::~client() { delete m_impl; }
-    
+
 http::request http::client::request(
     http::url url,
     http::operation op,
-    http::headers headers,
-    http::buffer send_data,
-    std::string data_content_type
+    http::headers req_headers,
+    http::buffer send_data
 ) {
     return request(
-        nullptr, std::move(url), std::move(op),
-        std::move(headers), std::move(send_data), std::move(data_content_type)
+        nullptr, std::move(url), std::move(op), std::move(req_headers), std::move(send_data)
     );
 }
 
@@ -345,13 +338,16 @@ http::request http::client::request(
     std::function<void(http::request req)> continuationWith,
     http::url url,
     http::operation op,
-    http::headers headers,
-    http::buffer send_data,
-    std::string data_content_type
+    http::headers req_headers,
+    http::buffer send_data
 ) {
+    // inserts headers already set in the client object; this will *not*
+    // replace/overwrite entries in the given req_headers object, only add
+    // new elements
+    req_headers.insert(headers.begin(), headers.end());
+
     auto res_impl = std::make_shared<http::request::impl>(
-        std::move(url), std::move(op), std::move(headers),
-        std::move(send_data), std::move(data_content_type)
+        std::move(url), std::move(op), std::move(req_headers), std::move(send_data)
     );
 
     if(continuationWith) {
@@ -373,15 +369,18 @@ void http::client::request_stream(
     std::function<bool(http::message data, http::progress progress)> receive_cb,
     http::url url,
     http::operation op,
-    http::headers headers,
-    http::buffer send_data,
-    std::string data_content_type
+    http::headers req_headers,
+    http::buffer send_data
 ) {
     assert(receive_cb);
 
+    // inserts headers already set in the client object; this will *not*
+    // replace/overwrite entries in the given req_headers object, only add
+    // new elements
+    req_headers.insert(headers.begin(), headers.end());
+
     auto res_impl = std::make_shared<http::request::impl>(
-        std::move(url), std::move(op), std::move(headers),
-        std::move(send_data), std::move(data_content_type)
+        std::move(url), std::move(op), std::move(headers), std::move(send_data)
     );
 
     res_impl->m_receive_cb = std::move(receive_cb);

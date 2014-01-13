@@ -25,9 +25,19 @@
 
 #include "request.hpp"
 
+ // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
+#if defined(_MSC_VER)
+#   pragma warning(push)
+#   pragma warning(disable: 4251)
+#endif // defined(_MSC_VER)
+
 namespace http {
 
     struct HTTP_API client {
+
+        /// These headers will be added to each request started
+        /// from this client.
+        http::headers headers;
 
         /// Starts the request and returns immediately.
         /// The result can be polled from the message-future
@@ -38,10 +48,9 @@ namespace http {
         /// manner. The running request can also be canceled.
         http::request request(
             http::url       url,
-            http::operation op                  = http::HTTP_GET,
-            http::headers   headers             = http::headers(),
-            http::buffer    send_data           = http::buffer(),
-            std::string     data_content_type   = "application/octet-stream"
+            http::operation op          = http::HTTP_GET,
+            http::headers   req_headers = http::headers(),
+            http::buffer    send_data   = http::buffer()
         );
 
         /// This call is similiar to the one above but with
@@ -58,10 +67,9 @@ namespace http {
         http::request request(
             std::function<void(http::request req)> continuationWith,
             http::url       url,
-            http::operation op                  = http::HTTP_GET,
-            http::headers   headers             = http::headers(),
-            http::buffer    send_data           = http::buffer(),
-            std::string     data_content_type   = "application/octet-stream"
+            http::operation op          = http::HTTP_GET,
+            http::headers   req_headers = http::headers(),
+            http::buffer    send_data   = http::buffer()
         );
 
         /// This call is similiar to the one above but with
@@ -83,10 +91,9 @@ namespace http {
         void request_stream(
             std::function<bool(http::message data, http::progress progress)> receive_cb,
             http::url       url,
-            http::operation op                  = http::HTTP_GET,
-            http::headers   headers             = http::headers(),
-            http::buffer    send_data           = http::buffer(),
-            std::string     data_content_type   = "application/octet-stream"
+            http::operation op          = http::HTTP_GET,
+            http::headers   req_headers = http::headers(),
+            http::buffer    send_data   = http::buffer()
         );
 
         static void wait_for_all();
@@ -108,3 +115,7 @@ namespace http {
     };
     
 } // namespace http
+
+#if defined(_MSC_VER)
+#   pragma warning(pop)
+#endif // defined(_MSC_VER)

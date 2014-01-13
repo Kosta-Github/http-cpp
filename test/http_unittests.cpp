@@ -162,16 +162,48 @@ CATCH_TEST_CASE(
 ) {
     auto url = LOCALHOST + "echo_headers";
 
-    auto headers_send = http::headers();
-    headers_send["http-cpp"] = "is cool";
-    headers_send["cool"]     = "is http-cpp";
-    auto data = http::client().request(url, http::HTTP_GET, headers_send).data().get();
+    auto headers_req = http::headers();
+    headers_req["http-cpp"] = "is cool";
+    headers_req["cool"]     = "is http-cpp";
+    auto data = http::client().request(url, http::HTTP_GET, headers_req).data().get();
 
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
     CATCH_CHECK(data.status == http::HTTP_200_OK);
 
     auto headers_received = data.headers;
-    for(auto&& h : headers_send) {
+    for(auto&& h : headers_req) {
+        CATCH_CHECK(h.second == headers_received[h.first]);
+    }
+}
+
+CATCH_TEST_CASE(
+    "Tests to merge headers set in the client object for a localhost web-server",
+    "[http][request][headers][merge][localhost]"
+) {
+    auto url = LOCALHOST + "echo_headers";
+
+    auto client = http::client();
+
+    // add an header entry to the client object
+    client.headers["http-cpp"] = "is cool";
+
+    // create a second headers object specific for the request
+    // and add another header entry to that one
+    auto headers_req = http::headers();
+    headers_req["cool"] = "is http-cpp";
+
+    // perform the request
+    auto data = client.request(url, http::HTTP_GET, headers_req).data().get();
+
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+
+    // check that the server received (and echoed) both header entries
+    auto headers_received = data.headers;
+    for(auto&& h : client.headers) {
+        CATCH_CHECK(h.second == headers_received[h.first]);
+    }
+    for(auto&& h : headers_req) {
         CATCH_CHECK(h.second == headers_received[h.first]);
     }
 }

@@ -43,10 +43,9 @@ namespace http {
         http::request request(
             http::client&   client,
             http::url       url,
-            http::operation op                  = http::HTTP_GET,
-            http::headers   headers             = http::headers(),
-            http::buffer    send_data           = http::buffer(),
-            std::string     data_content_type   = "application/octet-stream"
+            http::operation op          = http::HTTP_GET,
+            http::headers   headers     = http::headers(),
+            http::buffer    send_data   = http::buffer()
         );
 
         /// Forward this call 'request()' call to the given 'client' object,
@@ -56,10 +55,9 @@ namespace http {
             http::client&   client,
             std::function<void(http::request req)> continuationWith,
             http::url       url,
-            http::operation op                  = http::HTTP_GET,
-            http::headers   headers             = http::headers(),
-            http::buffer    send_data           = http::buffer(),
-            std::string     data_content_type   = "application/octet-stream"
+            http::operation op          = http::HTTP_GET,
+            http::headers   headers     = http::headers(),
+            http::buffer    send_data   = http::buffer()
         );
 
         /// Adds the given 'req' object to the list of tracked requests.
