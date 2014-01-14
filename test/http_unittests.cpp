@@ -171,7 +171,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests to round trip HTTP header data for a localhost web-server",
+    "Tests round tripping HTTP header data for a localhost web-server",
     "[http][request][headers][localhost]"
 ) {
     auto url = LOCALHOST + "echo_headers";
@@ -190,14 +190,13 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests to merge headers set in the client object for a localhost web-server",
+    "Tests merging headers set in the client object for a localhost web-server",
     "[http][request][headers][merge][localhost]"
 ) {
     auto url = LOCALHOST + "echo_headers";
 
-    auto client = http::client();
-
     // add an header entry to the client object
+    auto client = http::client();
     client.headers["http-cpp"] = "is cool";
 
     // create a second headers object specific for the request
@@ -218,6 +217,38 @@ CATCH_TEST_CASE(
     for(auto&& h : headers_req) {
         CATCH_CHECK(h.second == headers_received[h.first]);
     }
+}
+
+CATCH_TEST_CASE(
+    "Tests overwriting headers set in the client object works",
+    "[http][request][headers][merge][localhost]"
+) {
+    auto url = LOCALHOST + "echo_headers";
+
+    // add an header entry to the client object
+    auto client = http::client();
+    client.headers["color"] = "red";
+
+    // create a second headers object specific for the request
+    // and add another header entry to that one
+    auto headers_req = http::headers();
+    headers_req["color"] = "green";
+
+    // perform the request
+    auto data1 = client.request(url, http::HTTP_GET             ).data().get();
+    auto data2 = client.request(url, http::HTTP_GET, headers_req).data().get();
+    auto data3 = client.request(url, http::HTTP_GET             ).data().get();
+    check_result(data1, "headers received");
+    check_result(data2, "headers received");
+    check_result(data3, "headers received");
+
+    // check that the server received the correct values
+    auto headers_received1 = data1.headers;
+    auto headers_received2 = data2.headers;
+    auto headers_received3 = data3.headers;
+    CATCH_CHECK(headers_received1["color"] == "red");
+    CATCH_CHECK(headers_received2["color"] == "green");
+    CATCH_CHECK(headers_received3["color"] == "red");
 }
 
 static void perform_parallel_requests(
