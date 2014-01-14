@@ -188,7 +188,7 @@ public:
 
         if(m_cancel) { return 0; }
 
-        auto send_bytes = std::min(bytes, m_put_data.size() - m_put_progress);
+        auto send_bytes = std::min(static_cast<int64_t>(bytes), static_cast<int64_t>(m_put_data.size()) - m_put_progress);
         std::memcpy(ptr, m_put_data.data() + m_put_progress, send_bytes);
         m_put_progress += send_bytes;
 
