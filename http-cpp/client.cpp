@@ -101,10 +101,9 @@ struct http::request::impl :
 {
     impl(
         http::client const& client,
-        http::url url,
-        http::operation op,
-        http::headers headers,
-        http::buffer send_data
+        http::url           url,
+        http::operation     op,
+        http::headers       headers
     ) :
         curl_easy_wrap(),
         m_message_promise(),
@@ -114,13 +113,15 @@ struct http::request::impl :
         m_cancel(false),
         m_url(std::move(url)),
         m_operation(op),
-        m_send_data(std::move(send_data)),
-        m_send_progress(0),
+        m_put_progress(0),
         m_progress_mutex(),
         m_progress()
     {
-        curl_easy_setopt(handle, CURLOPT_URL, m_url.c_str());
-        curl_easy_setopt(handle, CURLOPT_NOBODY, 0);
+        curl_easy_setopt(handle, CURLOPT_URL,       m_url.c_str());
+        curl_easy_setopt(handle, CURLOPT_NOBODY,    0);
+
+        curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT,    client.connect_timeout);
+        curl_easy_setopt(handle, CURLOPT_TIMEOUT,           client.request_timeout);
 
         // inserts headers already set in the client object; this will *not*
         // replace/overwrite entries in the given req_headers object, only add
@@ -129,9 +130,6 @@ struct http::request::impl :
         for(auto&& h : headers) {
             add_header(h.first, h.second);
         }
-
-        curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, client.connect_timeout);
-        curl_easy_setopt(handle, CURLOPT_TIMEOUT, client.request_timeout);
     }
 
     virtual ~impl() {
@@ -150,8 +148,11 @@ public:
 
     http::url       m_url;
     http::operation m_operation;
-    http::buffer    m_send_data;
-    size_t          m_send_progress;
+
+    http::buffer    m_put_data;
+    int64_t         m_put_progress;
+
+    http::post_data m_post_data;
 
     std::function<bool(http::message, http::progress)>  m_receive_cb;
     std::function<void()>                               m_continue_cb;
@@ -182,13 +183,14 @@ public:
     }
 
     virtual size_t read(void* ptr, size_t bytes) override {
-        assert(m_send_progress <= m_send_data.size());
+        assert(0 <= m_put_progress);
+        assert(m_put_progress <= static_cast<int64_t>(m_put_data.size()));
 
         if(m_cancel) { return 0; }
 
-        auto send_bytes = std::min(bytes, m_send_data.size() - m_send_progress);
-        std::memcpy(ptr, m_send_data.data() + m_send_progress, send_bytes);
-        m_send_progress += send_bytes;
+        auto send_bytes = std::min(bytes, m_put_data.size() - m_put_progress);
+        std::memcpy(ptr, m_put_data.data() + m_put_progress, send_bytes);
+        m_put_progress += send_bytes;
 
         return send_bytes;
     }
@@ -214,6 +216,15 @@ public:
         }
 
         return !m_cancel;
+    }
+
+    virtual bool seek(int64_t offset, int origin) override {
+        switch(origin) {
+            case SEEK_SET:  m_put_progress  = offset;                       return true;
+            case SEEK_CUR:  m_put_progress += offset;                       return true;
+            case SEEK_END:  m_put_progress  = offset + m_put_data.size();   return true;
+            default:        assert(false);                                  return false;
+        }
     }
 
     http::progress progress() {
@@ -290,29 +301,35 @@ public:
             case http::HTTP_HEAD:   request_head();     start(); break;
             case http::HTTP_PUT:    request_put();      start(); break;
             case http::HTTP_DELETE: request_delete();   start(); break;
-            case http::HTTP_POST:
+            case http::HTTP_POST:   request_post();     start(); break;
             default:                finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
         }
     }
 
     void request_get() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
     }
 
     void request_head() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
-        curl_easy_setopt(handle, CURLOPT_NOBODY, 1);
+        curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
+        curl_easy_setopt(handle, CURLOPT_NOBODY,    1);
     }
 
     void request_put() {
-        auto size = static_cast<curl_off_t>(m_send_data.size());
+        curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
+        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_put_data.size()));
+    }
 
-        curl_easy_setopt(handle, CURLOPT_UPLOAD, 1);
-        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE, size);
+    void request_post() {
+        for(auto&& i : m_post_data) {
+            add_post_data(i.first, i.second);
+        }
+
+        curl_easy_setopt(handle, CURLOPT_HTTPPOST,  post_data);
     }
 
     void request_delete() {
-        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+        curl_easy_setopt(handle, CURLOPT_HTTPGET,       1);
         curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
     }
 };
@@ -324,34 +341,36 @@ http::progress http::request::progress() const { return m_impl->progress(); }
 void http::request::cancel() { m_impl->cancel(); }
 
 
-struct http::client::impl { };
-
-http::client::client() : m_impl(new impl()), connect_timeout(300), request_timeout(0) { }
-http::client::client(client&& o) HTTP_CPP_NOEXCEPT : m_impl(nullptr), connect_timeout(300), request_timeout(0) { operator=(std::move(o)); }
-http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(m_impl, o.m_impl); std::swap(connect_timeout, o.connect_timeout), std::swap(request_timeout, o.request_timeout); return *this; }
-http::client::~client() { delete m_impl; }
+http::client::client() : connect_timeout(300), request_timeout(0) { }
+http::client::client(client&& o) HTTP_CPP_NOEXCEPT : connect_timeout(300), request_timeout(0) { operator=(std::move(o)); }
+http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(connect_timeout, o.connect_timeout), std::swap(request_timeout, o.request_timeout); return *this; }
+http::client::~client() { }
 
 http::request http::client::request(
-    http::url url,
+    http::url       url,
     http::operation op,
-    http::headers req_headers,
-    http::buffer send_data
+    http::headers   req_headers,
+    http::buffer    put_data,
+    http::post_data post_data
 ) {
     return request(
-        nullptr, std::move(url), std::move(op), std::move(req_headers), std::move(send_data)
+        nullptr, std::move(url), std::move(op), std::move(req_headers), std::move(put_data), std::move(post_data)
     );
 }
 
 http::request http::client::request(
     std::function<void(http::request req)> continuationWith,
-    http::url url,
+    http::url       url,
     http::operation op,
-    http::headers req_headers,
-    http::buffer send_data
+    http::headers   req_headers,
+    http::buffer    put_data,
+    http::post_data post_data
 ) {
     auto res_impl = std::make_shared<http::request::impl>(
-        *this, std::move(url), std::move(op), std::move(req_headers), std::move(send_data)
+        *this, std::move(url), std::move(op), std::move(req_headers)
     );
+    res_impl->m_put_data    = std::move(put_data);
+    res_impl->m_post_data   = std::move(post_data);
 
     if(continuationWith) {
         res_impl->m_continue_cb = [=]() {
@@ -370,18 +389,20 @@ http::request http::client::request(
 
 void http::client::request_stream(
     std::function<bool(http::message data, http::progress progress)> receive_cb,
-    http::url url,
+    http::url       url,
     http::operation op,
-    http::headers req_headers,
-    http::buffer send_data
+    http::headers   req_headers,
+    http::buffer    put_data,
+    http::post_data post_data
 ) {
     assert(receive_cb);
 
     auto res_impl = std::make_shared<http::request::impl>(
-        *this, std::move(url), std::move(op), std::move(headers), std::move(send_data)
+        *this, std::move(url), std::move(op), std::move(headers)
     );
-
-    res_impl->m_receive_cb = std::move(receive_cb);
+    res_impl->m_put_data    = std::move(put_data);
+    res_impl->m_post_data   = std::move(post_data);
+    res_impl->m_receive_cb  = std::move(receive_cb);
 
     res_impl->request();
 }

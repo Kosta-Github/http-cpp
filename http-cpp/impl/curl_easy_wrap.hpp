@@ -33,7 +33,9 @@ namespace http {
         struct curl_easy_wrap {
             curl_easy_wrap(CURL* master = nullptr) :
                 handle(master ? curl_easy_duphandle(master) : curl_easy_init()),
-                headers(nullptr)
+                headers(nullptr),
+                post_data(nullptr),
+                post_data_last(nullptr)
             {
                 assert(handle);
 
@@ -42,46 +44,52 @@ namespace http {
             }
 
             virtual ~curl_easy_wrap() {
-                curl_slist_free_all(headers);
-
                 assert(handle);
                 curl_easy_cleanup(handle);
+
+                curl_slist_free_all(headers);
+
+                curl_formfree(post_data);
             }
 
         public:
             void set_default_values() {
 //                curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
-                curl_easy_setopt(handle, CURLOPT_AUTOREFERER, 1);
-                curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, ""); // accept all supported encodings
+                curl_easy_setopt(handle, CURLOPT_AUTOREFERER,           1);
+                curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING,       ""); // accept all supported encodings
                 curl_easy_setopt(handle, CURLOPT_HTTP_CONTENT_DECODING, 1);
-                curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
-                curl_easy_setopt(handle, CURLOPT_MAXREDIRS, 5); // max 5 redirects
-                curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE, 1);
+                curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION,        1);
+                curl_easy_setopt(handle, CURLOPT_MAXREDIRS,             5); // max 5 redirects
+                curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE,         1);
             }
 
             void set_callbacks() {
-                curl_easy_setopt(handle, CURLOPT_PRIVATE, this);
-                curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_stub);
-                curl_easy_setopt(handle, CURLOPT_WRITEDATA, this);
-                curl_easy_setopt(handle, CURLOPT_READFUNCTION, read_stub);
-                curl_easy_setopt(handle, CURLOPT_READDATA, this);
-                curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, header_stub);
-                curl_easy_setopt(handle, CURLOPT_HEADERDATA, this);
+                curl_easy_setopt(handle, CURLOPT_PRIVATE,           this);
+                curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION,     write_stub);
+                curl_easy_setopt(handle, CURLOPT_WRITEDATA,         this);
+                curl_easy_setopt(handle, CURLOPT_READFUNCTION,      read_stub);
+                curl_easy_setopt(handle, CURLOPT_READDATA,          this);
+                curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION,    header_stub);
+                curl_easy_setopt(handle, CURLOPT_HEADERDATA,        this);
+                curl_easy_setopt(handle, CURLOPT_SEEKFUNCTION,      seek_stub);
+                curl_easy_setopt(handle, CURLOPT_SEEKDATA,          this);
+
 #if (LIBCURL_VERSION_NUM >= 0x072000)
-                curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION, progress_stub);
-                curl_easy_setopt(handle, CURLOPT_XFERINFODATA, this);
+                curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION,  progress_stub);
+                curl_easy_setopt(handle, CURLOPT_XFERINFODATA,      this);
 #else // (LIBCURL_VERSION_NUM >= 0x072000)
-                curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION, progress_stub);
-                curl_easy_setopt(handle, CURLOPT_PROGRESSDATA, this);
+                curl_easy_setopt(handle, CURLOPT_PROGRESSFUNCTION,  progress_stub);
+                curl_easy_setopt(handle, CURLOPT_PROGRESSDATA,      this);
 #endif // (LIBCURL_VERSION_NUM >= 0x072000)
-                curl_easy_setopt(handle, CURLOPT_NOPROGRESS, 0);
+                curl_easy_setopt(handle, CURLOPT_NOPROGRESS,        0);
             }
 
         public:
             virtual bool   write(const void* ptr, size_t bytes) = 0;
             virtual size_t read(void* ptr, size_t bytes) = 0;
             virtual void   header(const void* ptr, size_t bytes) = 0;
+            virtual bool   seek(int64_t offset, int origin) = 0;
             virtual bool   progress(size_t downCur, size_t downTotal, size_t downSpeed, size_t upCur, size_t upTotal, size_t upSpeed) = 0;
             virtual void   finish(CURLcode code, int status) = 0;
             virtual void   cancel() = 0;
@@ -91,6 +99,17 @@ namespace http {
                 std::string combined = key + ": " + value;
                 headers = curl_slist_append(headers, combined.c_str());
                 curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
+            }
+
+            void add_post_data(std::string const& key, http::buffer const& value) {
+                curl_formadd(
+                    &post_data, &post_data_last,
+                    CURLFORM_NAMELENGTH,        key.size(),
+                    CURLFORM_PTRNAME,           key.data(),
+                    CURLFORM_CONTENTSLENGTH,    value.size(),
+                    CURLFORM_PTRCONTENTS,       value.data(),
+                    CURLFORM_END
+                );
             }
 
         private:
@@ -113,6 +132,12 @@ namespace http {
                 return bytes;
             }
 
+            static int seek_stub(void* userdata, curl_off_t offset, int origin) {
+                auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
+                auto off = static_cast<int64_t>(offset);
+                return (wrap->seek(off, origin) ? CURL_SEEKFUNC_OK : CURL_SEEKFUNC_FAIL);
+            }
+
 #if (LIBCURL_VERSION_NUM >= 0x072000)
             static int progress_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
 #else // (LIBCURL_VERSION_NUM >= 0x072000)
@@ -132,8 +157,10 @@ namespace http {
             }
             
         public:
-            CURL* const handle;
-            curl_slist* headers;
+            CURL* const     handle;
+            curl_slist*     headers;
+            curl_httppost*  post_data;
+            curl_httppost*  post_data_last;
         };
 
     } // namespace impl

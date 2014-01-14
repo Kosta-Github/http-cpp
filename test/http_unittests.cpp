@@ -29,6 +29,10 @@
 
 #include <atomic>
 
+static bool contains(std::string const& str, std::string const& find) {
+    return (str.find(find) != str.npos);
+}
+
 static inline void check_result(
     http::message const& data,
     std::string const& expected_body,
@@ -143,15 +147,34 @@ CATCH_TEST_CASE(
     check_result(http::client().request(url, http::HTTP_HEAD).data().get(), ""); // the body needs to be empty for a HEAD request
 }
 
-/*
 CATCH_TEST_CASE(
     "Tests a POST request for a localhost web-server",
     "[http][request][POST][localhost]"
 ) {
     auto url = LOCALHOST + "post_request";
-    check_result(http::client().request(url, http::HTTP_POST).data().get(), "POST received");
+
+    auto post_data = http::post_data();
+    post_data["library"]    = "http-cpp";
+    post_data["color"]      = "red";
+    post_data["age"]        = "42";
+
+    auto data = http::client().request(url, http::HTTP_POST, http::headers(), http::buffer(), post_data).data().get();
+
+    CATCH_CAPTURE(http::error_code_to_string(data.error_code));
+    CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
+
+    CATCH_CAPTURE(http::status_to_string(data.status));
+    CATCH_CHECK(data.status == http::HTTP_200_OK);
+
+    CATCH_CAPTURE(data.body);
+    CATCH_CHECK(contains(data.body, "POST received: "));
+
+    for(auto&& i : post_data) {
+        auto find = "Content-Disposition: form-data; name=\"" + i.first + "\"";
+        CATCH_CAPTURE(find);
+        CATCH_CHECK(contains(data.body, find));
+    }
 }
-*/
 
 CATCH_TEST_CASE(
     "Tests a PUT request for a localhost web-server",

@@ -70,6 +70,19 @@ function register_handlers(handle) {
         });
     }
 
+    handle["/post_request"] = function (request, response) {
+        var status = ((request.method === "POST") ? 200 : 404);
+        response.writeHead(status, { "Content-Type": "text/plain" });
+
+        var data = "";
+        request.setEncoding('utf8');
+        request.on('data', function (chunk) { data += chunk; });
+        request.on('end', function () {
+            response.write(request.method + " received: " + data);
+            response.end();
+        });
+    }
+
     handle["/delete_request"] = function (request, response) {
         var status = ((request.method === "DELETE") ? 200 : 404);
         response.writeHead(status, { "Content-Type": "text/plain" });

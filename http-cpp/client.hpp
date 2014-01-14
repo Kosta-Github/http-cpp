@@ -33,6 +33,8 @@
 
 namespace http {
 
+    typedef std::map<std::string, http::buffer> post_data;
+
     struct HTTP_API client {
 
         /// These headers will be added to each request started
@@ -59,7 +61,8 @@ namespace http {
             http::url       url,
             http::operation op          = http::HTTP_GET,
             http::headers   req_headers = http::headers(),
-            http::buffer    send_data   = http::buffer()
+            http::buffer    put_data    = http::buffer(),
+            http::post_data post_data   = http::post_data()
         );
 
         /// This call is similiar to the one above but with
@@ -78,7 +81,8 @@ namespace http {
             http::url       url,
             http::operation op          = http::HTTP_GET,
             http::headers   req_headers = http::headers(),
-            http::buffer    send_data   = http::buffer()
+            http::buffer    put_data    = http::buffer(),
+            http::post_data post_data   = http::post_data()
         );
 
         /// This call is similiar to the one above but with
@@ -102,7 +106,8 @@ namespace http {
             http::url       url,
             http::operation op          = http::HTTP_GET,
             http::headers   req_headers = http::headers(),
-            http::buffer    send_data   = http::buffer()
+            http::buffer    put_data    = http::buffer(),
+            http::post_data post_data   = http::post_data()
         );
 
         static void wait_for_all();
@@ -117,10 +122,6 @@ namespace http {
     private:
         client(client const&); // = delete;
         client& operator=(client const&); // = delete
-
-    private:
-        struct impl;
-        impl* m_impl;
     };
     
 } // namespace http
