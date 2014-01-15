@@ -101,15 +101,27 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
             }
 
-            void add_post_data(std::string const& key, http::buffer const& value) {
-                curl_formadd(
-                    &post_data, &post_data_last,
-                    CURLFORM_NAMELENGTH,        key.size(),
-                    CURLFORM_PTRNAME,           key.data(),
-                    CURLFORM_CONTENTSLENGTH,    value.size(),
-                    CURLFORM_PTRCONTENTS,       value.data(),
-                    CURLFORM_END
-                );
+            void add_post_data(std::string const& key, http::buffer const& value, std::string const& type) {
+                if(type.empty()) {
+                    curl_formadd(
+                        &post_data, &post_data_last,
+                        CURLFORM_NAMELENGTH,        key.size(),
+                        CURLFORM_PTRNAME,           key.data(),
+                        CURLFORM_CONTENTSLENGTH,    value.size(),
+                        CURLFORM_PTRCONTENTS,       value.data(),
+                        CURLFORM_END
+                    );
+                } else {
+                    curl_formadd(
+                        &post_data, &post_data_last,
+                        CURLFORM_NAMELENGTH,        key.size(),
+                        CURLFORM_PTRNAME,           key.data(),
+                        CURLFORM_CONTENTSLENGTH,    value.size(),
+                        CURLFORM_PTRCONTENTS,       value.data(),
+                        CURLFORM_CONTENTTYPE,       type.c_str(),
+                        CURLFORM_END
+                    );
+                }
             }
 
         private:

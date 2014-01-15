@@ -322,7 +322,7 @@ public:
 
     void request_post() {
         for(auto&& i : m_post_data) {
-            add_post_data(i.first, i.second);
+            add_post_data(i.name, i.content, i.type);
         }
 
         curl_easy_setopt(handle, CURLOPT_HTTPPOST,  post_data);
@@ -342,9 +342,6 @@ void http::request::cancel() { m_impl->cancel(); }
 
 
 http::client::client() : connect_timeout(300), request_timeout(0) { }
-http::client::client(client&& o) HTTP_CPP_NOEXCEPT : connect_timeout(300), request_timeout(0) { operator=(std::move(o)); }
-http::client& http::client::operator=(client&& o) HTTP_CPP_NOEXCEPT { std::swap(connect_timeout, o.connect_timeout), std::swap(request_timeout, o.request_timeout); return *this; }
-http::client::~client() { }
 
 http::request http::client::request(
     http::url       url,

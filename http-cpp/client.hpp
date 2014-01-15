@@ -23,7 +23,10 @@
 
 #pragma once
 
+#include "post_data.hpp"
 #include "request.hpp"
+
+#include <cassert>
 
  // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
 #if defined(_MSC_VER)
@@ -33,9 +36,11 @@
 
 namespace http {
 
-    typedef std::map<std::string, http::buffer> post_data;
-
     struct HTTP_API client {
+
+        /// Constructs a new client object and initializes it with
+        /// appropriate default values.
+        client();
 
         /// These headers will be added to each request started
         /// from this client.
@@ -112,16 +117,6 @@ namespace http {
 
         static void wait_for_all();
         static void cancel_all();
-
-    public:
-        client();
-        client(client&& o) HTTP_CPP_NOEXCEPT;
-        client& operator=(client&& o) HTTP_CPP_NOEXCEPT;
-        ~client();
-        
-    private:
-        client(client const&); // = delete;
-        client& operator=(client const&); // = delete
     };
     
 } // namespace http

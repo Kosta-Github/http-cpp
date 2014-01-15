@@ -154,9 +154,9 @@ CATCH_TEST_CASE(
     auto url = LOCALHOST + "post_request";
 
     auto post_data = http::post_data();
-    post_data["library"]    = "http-cpp";
-    post_data["color"]      = "red";
-    post_data["age"]        = "42";
+    post_data.emplace_back("library",   "library_http-cpp_library", "binary");
+    post_data.emplace_back("age",       "age_42_age",               "int");
+    post_data.emplace_back("color",     "color_red_color");
 
     auto data = http::client().request(url, http::HTTP_POST, http::headers(), http::buffer(), post_data).data().get();
 
@@ -170,9 +170,21 @@ CATCH_TEST_CASE(
     CATCH_CHECK(contains(data.body, "POST received: "));
 
     for(auto&& i : post_data) {
-        auto find = "Content-Disposition: form-data; name=\"" + i.first + "\"";
-        CATCH_CAPTURE(find);
-        CATCH_CHECK(contains(data.body, find));
+        // check form name
+        auto find_name = "Content-Disposition: form-data; name=\"" + i.name + "\"";
+        CATCH_CAPTURE(find_name);
+        CATCH_CHECK(contains(data.body, find_name));
+
+        // check form content
+        CATCH_CAPTURE(i.content);
+        CATCH_CHECK(contains(data.body, i.content));
+
+        if(!i.type.empty()) {
+            // check form type
+            auto find_type = "Content-Type: " + i.type;
+            CATCH_CAPTURE(find_type);
+            CATCH_CHECK(contains(data.body, find_type));
+        }
     }
 }
 
