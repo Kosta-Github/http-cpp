@@ -39,6 +39,18 @@ namespace http {
         std::string     name;
         http::buffer    content;
         std::string     type;
+
+#if defined(HTTP_CPP_NEED_EXPLICIT_MOVE)
+        post_content(post_content&& o) HTTP_CPP_NOEXCEPT { operator=(std::move(o)); }
+        post_content& operator=(post_content&& o) HTTP_CPP_NOEXCEPT {
+            if(this != &o) {
+                name    = std::move(o.name);
+                content = std::move(o.content);
+                type    = std::move(o.type);
+            }
+            return *this;
+        }
+#endif // defined(HTTP_CPP_NEED_EXPLICIT_MOVE)
     };
 
     typedef std::vector<post_content> post_data;

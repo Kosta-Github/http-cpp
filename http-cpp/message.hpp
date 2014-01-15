@@ -57,10 +57,10 @@ namespace http {
         message(message&& o) HTTP_CPP_NOEXCEPT { operator=(std::move(o)); }
         message& operator=(message&& o) HTTP_CPP_NOEXCEPT {
             if(this != &o) {
-                error_code = std::move(o.error_code);
-                status = std::move(o.status);
-                headers = std::move(o.headers);
-                body = std::move(o.body);
+                error_code  = std::move(o.error_code);
+                status      = std::move(o.status);
+                headers     = std::move(o.headers);
+                body        = std::move(o.body);
             }
             return *this;
         }
