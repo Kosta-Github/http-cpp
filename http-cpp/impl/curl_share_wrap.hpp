@@ -1,7 +1,7 @@
 //
 // The MIT License (MIT)
 //
-// Copyright (c) 2013 by Konstantin (Kosta) Baumann & Autodesk Inc.
+// Copyright (c) 2013-2014 by Konstantin (Kosta) Baumann & Autodesk Inc.
 //
 // Permission is hereby granted, free of charge,  to any person obtaining a copy of
 // this software and  associated documentation  files  (the "Software"), to deal in
@@ -60,11 +60,13 @@ namespace http {
 
         private:
             static void lock_function_stub(CURL* handle, curl_lock_data data, curl_lock_access access, void* userptr) {
+                (void)handle; (void)data; (void)access;
                 auto wrap = static_cast<curl_share_wrap*>(userptr); assert(wrap);
                 wrap->m_mutex.lock();
             }
 
             static void unlock_function_stub(CURL* handle, curl_lock_data data, void* userptr) {
+                (void)handle; (void)data;
                 auto wrap = static_cast<curl_share_wrap*>(userptr); assert(wrap);
                 wrap->m_mutex.unlock();
             }

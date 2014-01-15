@@ -1,7 +1,7 @@
 //
 // The MIT License (MIT)
 //
-// Copyright (c) 2013 by Konstantin (Kosta) Baumann & Autodesk Inc.
+// Copyright (c) 2013-2014 by Konstantin (Kosta) Baumann & Autodesk Inc.
 //
 // Permission is hereby granted, free of charge,  to any person obtaining a copy of
 // this software and  associated documentation  files  (the "Software"), to deal in
@@ -173,6 +173,10 @@ namespace http {
             curl_slist*     headers;
             curl_httppost*  post_data;
             curl_httppost*  post_data_last;
+
+        private:
+            curl_easy_wrap(curl_easy_wrap const&); // = delete;
+            curl_easy_wrap& operator=(curl_easy_wrap const&); // = delete;
         };
 
     } // namespace impl
