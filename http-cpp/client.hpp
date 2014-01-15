@@ -61,33 +61,30 @@ namespace http {
         /// The request object can also be queried about the
         /// actual progress and upload/download speed while
         /// the request is still running in a non-blocking
-        /// manner. The running request can also be canceled.
+        /// manner. The running request can be canceled.
+        /// If an on_progress callback is provided the callback
+        /// will be called periodically with the current
+        /// progress info; returning "false" from the progress
+        /// callback will cancel the corresponding request.
+        /// If an on_finish callback is provided the callback
+        /// will be called immediately after finishing the
+        /// request; the provided request object can then be
+        /// queried whether the request finished successfully or
+        /// with a failure; the callback will be called from the
+        /// context of another thread so you need to ensure that
+        /// no multi-threading issues can ocurr within the
+        /// callback implementation and the callback should
+        /// return as fast as possible since it will block
+        /// sending and receiving further data for other requests
+        /// running in parallel.
         http::request request(
-            http::url       url,
-            http::operation op          = http::HTTP_GET,
-            http::headers   req_headers = http::headers(),
-            http::buffer    put_data    = http::buffer(),
-            http::post_data post_data   = http::post_data()
-        );
-
-        /// This call is similiar to the one above but with
-        /// the added feature of registering a "continuation
-        /// callback" which gets called back as soon as the
-        /// request has finished (either successfully or with
-        /// an error). The "continuation" gets the request
-        /// object passed in as an argument to the callback.
-        /// The callback will be called from within the
-        /// context of another thread; and the work done
-        /// within that callback should be very minimal since
-        /// otherwise the sending and receiving of data gets
-        /// blocked for too long.
-        http::request request(
-            std::function<void(http::request req)> continuationWith,
-            http::url       url,
-            http::operation op          = http::HTTP_GET,
-            http::headers   req_headers = http::headers(),
-            http::buffer    put_data    = http::buffer(),
-            http::post_data post_data   = http::post_data()
+            http::url                           url,
+            http::operation                     op          = http::HTTP_GET,
+            std::function<bool(http::progress)> on_progress = nullptr,
+            std::function<void(http::request)>  on_finish   = nullptr,
+            http::headers                       req_headers = http::headers(),
+            http::buffer                        put_data    = http::buffer(),
+            http::post_data                     post_data   = http::post_data()
         );
 
         /// This call is similiar to the one above but with
@@ -107,7 +104,7 @@ namespace http {
         /// HTTP_REQUEST_PROGRESS, HTTP_REQUEST_CANCELED; all
         /// other positive values indicating an error.
         void request_stream(
-            std::function<bool(http::message data, http::progress progress)> receive_cb,
+            std::function<bool(http::message data, http::progress progress)> on_receive,
             http::url       url,
             http::operation op          = http::HTTP_GET,
             http::headers   req_headers = http::headers(),

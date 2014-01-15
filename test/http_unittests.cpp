@@ -51,7 +51,7 @@ static inline void check_result(
 static const std::string LOCALHOST = "http://localhost:8888/";
 
 CATCH_TEST_CASE(
-    "Tests HTTP_200_OK status for a localhost web-server",
+    "Test HTTP_200_OK status",
     "[http][request][200][localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_200_OK";
@@ -59,7 +59,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests HTTP_404_NOT_FOUND status for a localhost web-server",
+    "Test HTTP_404_NOT_FOUND status",
     "[http][request][404][localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_404_NOT_FOUND";
@@ -72,7 +72,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests canceling a running request for a localhost web-server",
+    "Test canceling a running request",
     "[http][request][cancel][localhost]"
 ) {
     auto start_time = std::chrono::system_clock::now();
@@ -91,7 +91,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests request timeout for a localhost web-server",
+    "Test request timeout",
     "[http][request][timeout][localhost]"
 ) {
     auto start_time = std::chrono::system_clock::now();
@@ -110,7 +110,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests a request on a non-open port on localhost",
+    "Test a request on a non-open port",
     "[http][request][non-open-port][localhost]"
 ) {
     auto url = "http://localhost:1/";
@@ -121,7 +121,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests a request to a non-existing hostname",
+    "Test a request to a non-existing hostname",
     "[http][request][invalid-hostname]"
 ) {
     auto url = "http://abc.xyz/";
@@ -132,7 +132,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests a GET request for a localhost web-server",
+    "Test a GET request",
     "[http][request][GET][localhost]"
 ) {
     auto url = LOCALHOST + "get_request";
@@ -140,7 +140,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests a HEAD request for a localhost web-server",
+    "Test a HEAD request",
     "[http][request][HEAD][localhost]"
 ) {
     auto url = LOCALHOST + "head_request";
@@ -148,7 +148,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests a POST request for a localhost web-server",
+    "Test a POST request",
     "[http][request][POST][localhost]"
 ) {
     auto url = LOCALHOST + "post_request";
@@ -158,7 +158,7 @@ CATCH_TEST_CASE(
     post_data.emplace_back("age",       "age_42_age",               "int");
     post_data.emplace_back("color",     "color_red_color");
 
-    auto data = http::client().request(url, http::HTTP_POST, http::headers(), http::buffer(), post_data).data().get();
+    auto data = http::client().request(url, http::HTTP_POST, nullptr, nullptr, http::headers(), http::buffer(), post_data).data().get();
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
@@ -189,16 +189,16 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests a PUT request for a localhost web-server",
+    "Test a PUT request",
     "[http][request][PUT][localhost]"
 ) {
     auto url = LOCALHOST + "put_request";
     auto put_data = std::string("I am the PUT workload!");
-    check_result(http::client().request(url, http::HTTP_PUT, http::headers(), put_data).data().get(), "PUT received: " + put_data);
+    check_result(http::client().request(url, http::HTTP_PUT, nullptr, nullptr, http::headers(), put_data).data().get(), "PUT received: " + put_data);
 }
 
 CATCH_TEST_CASE(
-    "Tests a DELETE request for a localhost web-server",
+    "Test a DELETE request",
     "[http][request][DELETE][localhost]"
 ) {
     auto url = LOCALHOST + "delete_request";
@@ -206,7 +206,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests round tripping HTTP header data for a localhost web-server",
+    "Test round tripping HTTP header data",
     "[http][request][headers][localhost]"
 ) {
     auto url = LOCALHOST + "echo_headers";
@@ -214,7 +214,7 @@ CATCH_TEST_CASE(
     auto headers_req = http::headers();
     headers_req["http-cpp"] = "is cool";
     headers_req["cool"]     = "is http-cpp";
-    auto data = http::client().request(url, http::HTTP_GET, headers_req).data().get();
+    auto data = http::client().request(url, http::HTTP_GET, nullptr, nullptr, headers_req).data().get();
 
     check_result(data, "headers received");
 
@@ -225,7 +225,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests merging headers set in the client object for a localhost web-server",
+    "Test merging HTTP headers set in the client object and for the request",
     "[http][request][headers][merge][localhost]"
 ) {
     auto url = LOCALHOST + "echo_headers";
@@ -240,7 +240,7 @@ CATCH_TEST_CASE(
     headers_req["cool"] = "is http-cpp";
 
     // perform the request
-    auto data = client.request(url, http::HTTP_GET, headers_req).data().get();
+    auto data = client.request(url, http::HTTP_GET, nullptr, nullptr, headers_req).data().get();
 
     check_result(data, "headers received");
 
@@ -255,7 +255,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Tests overwriting headers set in the client object works",
+    "Test overwriting HTTP headers set in the client object by providing them for the request",
     "[http][request][headers][merge][localhost]"
 ) {
     auto url = LOCALHOST + "echo_headers";
@@ -270,9 +270,9 @@ CATCH_TEST_CASE(
     headers_req["color"] = "green";
 
     // perform the request
-    auto data1 = client.request(url, http::HTTP_GET             ).data().get();
-    auto data2 = client.request(url, http::HTTP_GET, headers_req).data().get();
-    auto data3 = client.request(url, http::HTTP_GET             ).data().get();
+    auto data1 = client.request(url, http::HTTP_GET                               ).data().get();
+    auto data2 = client.request(url, http::HTTP_GET, nullptr, nullptr, headers_req).data().get();
+    auto data3 = client.request(url, http::HTTP_GET                               ).data().get();
     check_result(data1, "headers received");
     check_result(data2, "headers received");
     check_result(data3, "headers received");
@@ -308,7 +308,7 @@ static void perform_parallel_requests(
 }
 
 CATCH_TEST_CASE(
-    "Test multiple parallel requests against localhost web-server",
+    "Test multiple parallel requests",
     "[http][requests][200][localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_200_OK";
@@ -316,7 +316,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Test multiple parallel requests against localhost web-server for a non-existing URL",
+    "Test multiple parallel requests for a non-existing URL",
     "[http][requests][404][localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_404_NOT_FOUND";
@@ -366,7 +366,7 @@ static void perform_parallel_stream_requests(
 }
 
 CATCH_TEST_CASE(
-    "Test multiple parallel streaming requests against localhost web-server",
+    "Test multiple parallel streaming requests",
     "[http][requests][stream][localhost]"
 ) {
     auto url = LOCALHOST + "get_request";
@@ -374,7 +374,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Test multiple parallel streaming requests against google server",
+    "Test multiple parallel streaming requests against a google server",
     "[http][requests][stream][google]"
 ) {
     auto url = "https://www.google.com/?gws_rd=cr#q=Autodesk";
@@ -383,21 +383,21 @@ CATCH_TEST_CASE(
 
 
 CATCH_TEST_CASE(
-    "Check the default value for the 'connect timeout'",
+    "Check the default value for the 'connect timeout' setting",
     "[http][client][connect][timeout][default]"
 ) {
     CATCH_CHECK(http::client().connect_timeout == 300);
 }
 
 CATCH_TEST_CASE(
-    "Check the default value for the 'request timeout'",
+    "Check the default value for the 'request timeout' setting",
     "[http][client][request][timeout][default]"
 ) {
     CATCH_CHECK(http::client().request_timeout == 0);
 }
 
 CATCH_TEST_CASE(
-    "test http::escape()",
+    "Test http::escape() works properly",
     "[http][escape]"
 ) {
     CATCH_CHECK(http::escape("hello world") == "hello%20world");
@@ -405,7 +405,7 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "test http::unescape()",
+    "Test http::unescape() works properly",
     "[http][unescape]"
 ) {
     CATCH_CHECK(http::unescape("hello%20world") == "hello world");

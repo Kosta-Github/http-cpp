@@ -25,28 +25,18 @@
 #include "requests.hpp"
 
 http::request http::requests::request(
-    http::client&   client,
-    http::url       url,
-    http::operation op,
-    http::headers   headers,
-    http::buffer    send_data
+    http::client&                       client,
+    http::url                           url,
+    http::operation                     op,
+    std::function<bool(http::progress)> on_progress,
+    std::function<void(http::request)>  on_finish,
+    http::headers                       headers,
+    http::buffer                        send_data
 ) {
     return add(client.request(
-        std::move(url), std::move(op), std::move(headers), std::move(send_data)
-    ));
-}
-
-http::request http::requests::request(
-    http::client&   client,
-    std::function<void(http::request req)> continuationWith,
-    http::url       url,
-    http::operation op,
-    http::headers   headers,
-    http::buffer    send_data
-) {
-    return add(client.request(
-        std::move(continuationWith),
-        std::move(url), std::move(op), std::move(headers), std::move(send_data)
+        std::move(url), std::move(op),
+        std::move(on_progress), std::move(on_finish),
+        std::move(headers), std::move(send_data)
     ));
 }
 
@@ -74,8 +64,8 @@ http::progress http::requests::progress_all() const {
         result.uploadTotalBytes     += p.uploadTotalBytes;
         result.uploadSpeed          += p.uploadSpeed;
 
-        downTotalValid  = (downTotalValid   && (p.downloadTotalBytes    > 0));
-        upTotalValid    = (upTotalValid     && (p.uploadTotalBytes      > 0));
+        downTotalValid  = (downTotalValid   && ((p.downloadCurrentBytes == 0) || (p.downloadTotalBytes > 0)));
+        upTotalValid    = (upTotalValid     && ((p.uploadCurrentBytes   == 0) || (p.uploadTotalBytes   > 0)));
     }
 
     if(!downTotalValid) { result.downloadTotalBytes = 0; }

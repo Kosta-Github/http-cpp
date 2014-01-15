@@ -155,10 +155,11 @@ public:
     http::post_data m_post_data;
 
     std::function<bool(http::message, http::progress)>  m_receive_cb;
-    std::function<void()>                               m_continue_cb;
+    std::function<void()>                               m_on_finish;
 
-    std::mutex      m_progress_mutex;
-    http::progress  m_progress;
+    std::mutex                          m_progress_mutex;
+    http::progress                      m_progress;
+    std::function<bool(http::progress)> m_on_progress;
 
 public:
     virtual bool write(const void* ptr, size_t bytes) override {
@@ -212,6 +213,11 @@ public:
         if(m_receive_cb) {
             http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers);
             auto proceed = m_receive_cb(std::move(msg), progress());
+            if(!proceed) { m_cancel = true; }
+        }
+
+        if(m_on_progress) {
+            auto proceed = m_on_progress(progress());
             if(!proceed) { m_cancel = true; }
         }
 
@@ -280,8 +286,8 @@ public:
         m_message_promise.set_value(std::move(m_message_accum));
 
         // call an optional continuation callback for this request
-        if(m_continue_cb) {
-            m_continue_cb();
+        if(m_on_finish) {
+            m_on_finish();
         }
 
         // mark this request as finished and remove it from the
@@ -344,43 +350,29 @@ void http::request::cancel() { m_impl->cancel(); }
 http::client::client() : connect_timeout(300), request_timeout(0) { }
 
 http::request http::client::request(
-    http::url       url,
-    http::operation op,
-    http::headers   req_headers,
-    http::buffer    put_data,
-    http::post_data post_data
+    http::url                           url,
+    http::operation                     op,
+    std::function<bool(http::progress)> on_progress,
+    std::function<void(http::request)>  on_finish,
+    http::headers                       req_headers,
+    http::buffer                        put_data,
+    http::post_data                     post_data
 ) {
-    return request(
-        nullptr, std::move(url), std::move(op), std::move(req_headers), std::move(put_data), std::move(post_data)
-    );
-}
+    auto req = http::request();
 
-http::request http::client::request(
-    std::function<void(http::request req)> continuationWith,
-    http::url       url,
-    http::operation op,
-    http::headers   req_headers,
-    http::buffer    put_data,
-    http::post_data post_data
-) {
-    auto res_impl = std::make_shared<http::request::impl>(
+    req.m_impl = std::make_shared<http::request::impl>(
         *this, std::move(url), std::move(op), std::move(req_headers)
     );
-    res_impl->m_put_data    = std::move(put_data);
-    res_impl->m_post_data   = std::move(post_data);
+    req.m_impl->m_put_data    = std::move(put_data);
+    req.m_impl->m_post_data   = std::move(post_data);
+    req.m_impl->m_on_progress = std::move(on_progress);
 
-    if(continuationWith) {
-        res_impl->m_continue_cb = [=]() {
-            auto response = http::request();
-            response.m_impl = res_impl;
-            continuationWith(std::move(response));
-        };
+    if(on_finish) {
+        req.m_impl->m_on_finish = [=]() { on_finish(req); };
     }
 
-    res_impl->request();
+    req.m_impl->request();
 
-    auto req = http::request();
-    req.m_impl = res_impl;
     return req;
 }
 

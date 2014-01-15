@@ -38,26 +38,16 @@ namespace http {
     struct HTTP_API requests {
 
         /// Forward this call 'request()' call to the given 'client' object,
-        /// add the created 'request' object to this list, and return it
-        /// also back to the caller.
+        /// add the created 'request' object to this list of tracked requests,
+        /// and return it also back to the caller.
         http::request request(
-            http::client&   client,
-            http::url       url,
-            http::operation op          = http::HTTP_GET,
-            http::headers   headers     = http::headers(),
-            http::buffer    send_data   = http::buffer()
-        );
-
-        /// Forward this call 'request()' call to the given 'client' object,
-        /// add the created 'request' object to this list, and return it
-        /// also back to the caller.
-        http::request request(
-            http::client&   client,
-            std::function<void(http::request req)> continuationWith,
-            http::url       url,
-            http::operation op          = http::HTTP_GET,
-            http::headers   headers     = http::headers(),
-            http::buffer    send_data   = http::buffer()
+            http::client&                       client,
+            http::url                           url,
+            http::operation                     op          = http::HTTP_GET,
+            std::function<bool(http::progress)> on_progress = nullptr,
+            std::function<void(http::request)>  on_finish   = nullptr,
+            http::headers                       headers     = http::headers(),
+            http::buffer                        send_data   = http::buffer()
         );
 
         /// Adds the given 'req' object to the list of tracked requests.
