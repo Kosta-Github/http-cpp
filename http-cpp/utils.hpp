@@ -25,11 +25,52 @@
 
 #include "http-cpp.hpp"
 
+#include <chrono>
+#include <future>
 #include <string>
+#include <thread>
 
 namespace http {
 
     HTTP_API std::string escape(std::string s);
     HTTP_API std::string unescape(std::string s);
+
+    /// This helper function is just provided as here due to consistency with
+    /// respect to the wait_for() and wait_until() helper functions.
+    template<typename FUTURE>
+    inline void wait(FUTURE&& f) {
+        f.wait();
+    }
+
+    /// Since the Microsoft STL implementation of std::future<T>::wait_for() is
+    /// broken use this helper function instead which reimplements the functionality
+    /// on Windows by a workaround and uses the correct implementation on the
+    /// other platforms.
+    template<typename FUTURE, typename TIME>
+    inline auto wait_for(FUTURE&& f, TIME&& t) -> decltype(std::future_status::ready) {
+#if !defined(WIN32)
+        return f.wait_for(std::forward<TIME>(t));
+#else // !defined(WIN32)
+        return http::wait_until(std::forward<FUTURE>(f), std::chrono::system_clock::now() + duration);
+#endif // !defined(WIN32)
+    }
+
+    /// Since the Microsoft STL implementation of std::future<T>::wait_until() is
+    /// broken use this helper function instead which reimplements the functionality
+    /// on Windows by a workaround and uses the correct implementation on the
+    /// other platforms.
+    template<typename FUTURE, typename TIME>
+    inline auto wait_until(FUTURE&& f, TIME&& t) -> decltype(std::future_status::ready) {
+#if !defined(WIN32)
+        return f.wait_until(std::forward<TIME>(t));
+#else // !defined(WIN32)
+        while(true) {
+            if(f._Is_ready()) { return std::future_status::ready; }
+            if(std::chrono::system_clock::now() > t) { break; }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return std::future_status::timeout;
+#endif // !defined(WIN32)
+    }
 
 } // namespace http

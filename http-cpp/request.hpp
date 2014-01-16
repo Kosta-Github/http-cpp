@@ -26,6 +26,7 @@
 #include "message.hpp"
 #include "operation.hpp"
 #include "progress.hpp"
+#include "utils.hpp"
 
 #include <future>
 
@@ -42,12 +43,24 @@ namespace http {
     struct HTTP_API request {
         std::shared_future<http::message>& data();
 
-        http::operation operation() const;
         http::url url() const;
+        http::operation operation() const;
 
         http::progress progress() const;
 
         void cancel();
+
+        inline void wait() { http::wait(data()); }
+
+        template<typename TIME>
+        inline auto wait_for(TIME&& t) -> decltype(std::future_status::ready) {
+            return http::wait_for(data(), std::forward<TIME>(t));
+        }
+
+        template<typename TIME>
+        inline auto wait_until(TIME&& t) -> decltype(std::future_status::ready) {
+            return http::wait_until(data(), std::forward<TIME>(t));
+        }
 
     private:
         friend struct client;

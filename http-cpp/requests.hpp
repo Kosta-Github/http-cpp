@@ -64,17 +64,17 @@ namespace http {
 
         /// Waits for all tracked requests to finish using the given timeout duration.
         template<typename DURATION>
-        inline auto wait_all_for(DURATION&& duration) -> decltype(std::future_status::ready) {
-            auto timeout_time = std::chrono::system_clock::now() + duration;
-            return wait_all_until(timeout_time);
+        inline auto wait_for_all(DURATION&& duration) -> decltype(std::future_status::ready) {
+            return wait_until_all(std::chrono::system_clock::now() + duration);
         }
 
         /// Waits for all tracked requests to finish using the given absolute timeout time.
         template<typename TIMEOUT_TIME>
-        inline auto wait_all_until(TIMEOUT_TIME&& timeout_time) -> decltype(std::future_status::ready) {
+        inline auto wait_until_all(TIMEOUT_TIME&& timeout_time) -> decltype(std::future_status::ready) {
             for(auto&& r : reqs) {
-                if(r.data().wait_until(timeout_time) != std::future_status::ready) {
-                    return std::future_status::timeout;
+                auto status = r.wait_until(timeout_time);
+                if(status != std::future_status::ready) {
+                    return status;
                 }
             }
             return std::future_status::ready;

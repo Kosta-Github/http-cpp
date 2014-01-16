@@ -82,6 +82,6 @@ void http::requests::cancel_all() {
 
 void http::requests::wait_all() {
     for(auto&& r : reqs) {
-        r.data().wait();
+        r.wait();
     }
 }

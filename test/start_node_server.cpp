@@ -51,7 +51,7 @@ std::shared_ptr<std::thread> start_node_server() {
         assert(t);
 
         // send the stop request to the server
-        http::client().request(node_stop_request).data().wait();
+        http::client().request(node_stop_request).wait();
 
         // wait for the thread to terminate and delete
         // the corresponding object
