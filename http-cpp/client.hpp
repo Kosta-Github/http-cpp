@@ -46,6 +46,18 @@ namespace http {
         /// from this client.
         http::headers headers;
 
+        /// This data buffer will be used for a PUT operation.
+        /// In order to avoid multi-threading issues, object lifetime
+        /// issues, or excessive memory copies, this buffer will be
+        /// move into a private area once the request gets started.
+        http::buffer put_data;
+
+        /// This data will be used for a POST operation.
+        /// In order to avoid multi-threading issues, object lifetime
+        /// issues, or excessive memory copies, this data will be
+        /// move into a private area once the request gets started.
+        http::post_data post_data;
+
         /// Specifies the maximum time in seconds that a connect is
         /// allowed to get established. Default value is 300 seconds.
         size_t connect_timeout;
@@ -81,10 +93,7 @@ namespace http {
             http::url                           url,
             http::operation                     op          = http::HTTP_GET,
             std::function<bool(http::progress)> on_progress = nullptr,
-            std::function<void(http::request)>  on_finish   = nullptr,
-            http::headers                       req_headers = http::headers(),
-            http::buffer                        put_data    = http::buffer(),
-            http::post_data                     post_data   = http::post_data()
+            std::function<void(http::request)>  on_finish   = nullptr
         );
 
         /// This call is similiar to the one above but with
@@ -106,10 +115,7 @@ namespace http {
         void request_stream(
             std::function<bool(http::message data, http::progress progress)> on_receive,
             http::url       url,
-            http::operation op          = http::HTTP_GET,
-            http::headers   req_headers = http::headers(),
-            http::buffer    put_data    = http::buffer(),
-            http::post_data post_data   = http::post_data()
+            http::operation op          = http::HTTP_GET
         );
 
         static void wait_for_all();

@@ -45,9 +45,7 @@ namespace http {
             http::url                           url,
             http::operation                     op          = http::HTTP_GET,
             std::function<bool(http::progress)> on_progress = nullptr,
-            std::function<void(http::request)>  on_finish   = nullptr,
-            http::headers                       headers     = http::headers(),
-            http::buffer                        send_data   = http::buffer()
+            std::function<void(http::request)>  on_finish   = nullptr
         );
 
         /// Adds the given 'req' object to the list of tracked requests.

@@ -158,7 +158,9 @@ CATCH_TEST_CASE(
     post_data.emplace_back("age",       "age_42_age",               "int");
     post_data.emplace_back("color",     "color_red_color");
 
-    auto data = http::client().request(url, http::HTTP_POST, nullptr, nullptr, http::headers(), http::buffer(), post_data).data().get();
+    auto client = http::client();
+    client.post_data = post_data;
+    auto data = client.request(url, http::HTTP_POST).data().get();
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
@@ -194,7 +196,9 @@ CATCH_TEST_CASE(
 ) {
     auto url = LOCALHOST + "put_request";
     auto put_data = std::string("I am the PUT workload!");
-    check_result(http::client().request(url, http::HTTP_PUT, nullptr, nullptr, http::headers(), put_data).data().get(), "PUT received: " + put_data);
+    auto client = http::client();
+    client.put_data = put_data;
+    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + put_data);
 }
 
 CATCH_TEST_CASE(
@@ -214,7 +218,10 @@ CATCH_TEST_CASE(
     auto headers_req = http::headers();
     headers_req["http-cpp"] = "is cool";
     headers_req["cool"]     = "is http-cpp";
-    auto data = http::client().request(url, http::HTTP_GET, nullptr, nullptr, headers_req).data().get();
+
+    auto client = http::client();
+    client.headers = headers_req;
+    auto data = client.request(url).data().get();
 
     check_result(data, "headers received");
 
@@ -222,68 +229,6 @@ CATCH_TEST_CASE(
     for(auto&& h : headers_req) {
         CATCH_CHECK(h.second == headers_received[h.first]);
     }
-}
-
-CATCH_TEST_CASE(
-    "Test merging HTTP headers set in the client object and for the request",
-    "[http][request][headers][merge][localhost]"
-) {
-    auto url = LOCALHOST + "echo_headers";
-
-    // add an header entry to the client object
-    auto client = http::client();
-    client.headers["http-cpp"] = "is cool";
-
-    // create a second headers object specific for the request
-    // and add another header entry to that one
-    auto headers_req = http::headers();
-    headers_req["cool"] = "is http-cpp";
-
-    // perform the request
-    auto data = client.request(url, http::HTTP_GET, nullptr, nullptr, headers_req).data().get();
-
-    check_result(data, "headers received");
-
-    // check that the server received (and echoed) both header entries
-    auto headers_received = data.headers;
-    for(auto&& h : client.headers) {
-        CATCH_CHECK(h.second == headers_received[h.first]);
-    }
-    for(auto&& h : headers_req) {
-        CATCH_CHECK(h.second == headers_received[h.first]);
-    }
-}
-
-CATCH_TEST_CASE(
-    "Test overwriting HTTP headers set in the client object by providing them for the request",
-    "[http][request][headers][merge][localhost]"
-) {
-    auto url = LOCALHOST + "echo_headers";
-
-    // add an header entry to the client object
-    auto client = http::client();
-    client.headers["color"] = "red";
-
-    // create a second headers object specific for the request
-    // and add another header entry to that one
-    auto headers_req = http::headers();
-    headers_req["color"] = "green";
-
-    // perform the request
-    auto data1 = client.request(url, http::HTTP_GET                               ).data().get();
-    auto data2 = client.request(url, http::HTTP_GET, nullptr, nullptr, headers_req).data().get();
-    auto data3 = client.request(url, http::HTTP_GET                               ).data().get();
-    check_result(data1, "headers received");
-    check_result(data2, "headers received");
-    check_result(data3, "headers received");
-
-    // check that the server received the correct values
-    auto headers_received1 = data1.headers;
-    auto headers_received2 = data2.headers;
-    auto headers_received3 = data3.headers;
-    CATCH_CHECK(headers_received1["color"] == "red");
-    CATCH_CHECK(headers_received2["color"] == "green");
-    CATCH_CHECK(headers_received3["color"] == "red");
 }
 
 static void perform_parallel_requests(

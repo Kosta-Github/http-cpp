@@ -29,14 +29,11 @@ http::request http::requests::request(
     http::url                           url,
     http::operation                     op,
     std::function<bool(http::progress)> on_progress,
-    std::function<void(http::request)>  on_finish,
-    http::headers                       headers,
-    http::buffer                        send_data
+    std::function<void(http::request)>  on_finish
 ) {
     return add(client.request(
         std::move(url), std::move(op),
-        std::move(on_progress), std::move(on_finish),
-        std::move(headers), std::move(send_data)
+        std::move(on_progress), std::move(on_finish)
     ));
 }
 

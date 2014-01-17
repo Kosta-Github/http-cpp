@@ -100,10 +100,9 @@ struct http::request::impl :
     public std::enable_shared_from_this<impl>
 {
     impl(
-        http::client const& client,
-        http::url           url,
-        http::operation     op,
-        http::headers       headers
+        http::client&   client,
+        http::url       url,
+        http::operation op
     ) :
         curl_easy_wrap(),
         m_message_promise(),
@@ -123,13 +122,13 @@ struct http::request::impl :
         curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT,    client.connect_timeout);
         curl_easy_setopt(handle, CURLOPT_TIMEOUT,           client.request_timeout);
 
-        // inserts headers already set in the client object; this will *not*
-        // replace/overwrite entries in the given req_headers object, only add
-        // new elements
-        headers.insert(client.headers.begin(), client.headers.end());
-        for(auto&& h : headers) {
+        for(auto&& h : client.headers) {
             add_header(h.first, h.second);
         }
+
+        using std::swap;
+        swap(m_put_data,    client.put_data);
+        swap(m_post_data,   client.post_data);
     }
 
     virtual ~impl() {
@@ -366,18 +365,14 @@ http::request http::client::request(
     http::url                           url,
     http::operation                     op,
     std::function<bool(http::progress)> on_progress,
-    std::function<void(http::request)>  on_finish,
-    http::headers                       req_headers,
-    http::buffer                        put_data,
-    http::post_data                     post_data
+    std::function<void(http::request)>  on_finish
 ) {
     auto req = http::request();
 
     req.m_impl = std::make_shared<http::request::impl>(
-        *this, std::move(url), std::move(op), std::move(req_headers)
+        *this, std::move(url), std::move(op)
     );
-    req.m_impl->m_put_data    = std::move(put_data);
-    req.m_impl->m_post_data   = std::move(post_data);
+
     req.m_impl->m_on_progress = std::move(on_progress);
 
     if(on_finish) {
@@ -392,18 +387,14 @@ http::request http::client::request(
 void http::client::request_stream(
     std::function<bool(http::message data, http::progress progress)> receive_cb,
     http::url       url,
-    http::operation op,
-    http::headers   req_headers,
-    http::buffer    put_data,
-    http::post_data post_data
+    http::operation op
 ) {
     assert(receive_cb);
 
     auto res_impl = std::make_shared<http::request::impl>(
-        *this, std::move(url), std::move(op), std::move(headers)
+        *this, std::move(url), std::move(op)
     );
-    res_impl->m_put_data    = std::move(put_data);
-    res_impl->m_post_data   = std::move(post_data);
+
     res_impl->m_receive_cb  = std::move(receive_cb);
 
     res_impl->request();
