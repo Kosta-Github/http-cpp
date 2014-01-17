@@ -313,20 +313,30 @@ public:
     }
 
     void request_get() {
+        assert(m_put_data.empty());
+        assert(m_post_data.empty());
+
         curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
     }
 
     void request_head() {
+        assert(m_put_data.empty());
+        assert(m_post_data.empty());
+
         curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
         curl_easy_setopt(handle, CURLOPT_NOBODY,    1);
     }
 
     void request_put() {
+        assert(m_post_data.empty());
+
         curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
         curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_put_data.size()));
     }
 
     void request_post() {
+        assert(m_put_data.empty());
+
         for(auto&& i : m_post_data) {
             add_post_data(i.name, i.content, i.type);
         }
@@ -335,6 +345,9 @@ public:
     }
 
     void request_delete() {
+        assert(m_put_data.empty());
+        assert(m_post_data.empty());
+
         curl_easy_setopt(handle, CURLOPT_HTTPGET,       1);
         curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
     }
