@@ -25,16 +25,11 @@
 #include "requests.hpp"
 
 http::request http::requests::request(
-    http::client&                       client,
-    http::url                           url,
-    http::operation                     op,
-    std::function<bool(http::progress)> on_progress,
-    std::function<void(http::request)>  on_finish
+    http::client&   client,
+    http::url       url,
+    http::operation op
 ) {
-    return add(client.request(
-        std::move(url), std::move(op),
-        std::move(on_progress), std::move(on_finish)
-    ));
+    return add(client.request(std::move(url), std::move(op)));
 }
 
 http::request http::requests::add(

@@ -129,6 +129,15 @@ struct http::request::impl :
         using std::swap;
         swap(m_put_data,    client.put_data);
         swap(m_post_data,   client.post_data);
+
+        swap(m_on_progress, client.on_progress);
+        swap(m_on_receive,  client.on_receive);
+
+        auto on_finish = client.on_finish;
+        if(on_finish) {
+            m_on_finish = [=]() { auto req = http::request(); req.m_impl = shared_from_this(); on_finish(req); };
+            client.on_finish = nullptr;
+        }
     }
 
     virtual ~impl() {
@@ -153,7 +162,7 @@ public:
 
     http::post_data m_post_data;
 
-    std::function<bool(http::message, http::progress)>  m_receive_cb;
+    std::function<bool(http::message, http::progress)>  m_on_receive;
     std::function<void()>                               m_on_finish;
 
     std::mutex                          m_progress_mutex;
@@ -169,13 +178,13 @@ public:
         // add data to the end of the receive/message buffer
         m_message_accum.body.insert(m_message_accum.body.end(), data, data + bytes);
 
-        if(m_receive_cb) {
+        if(m_on_receive) {
             // call the receive callback with the received data immediately
             http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers, std::move(m_message_accum.body));
             m_message_accum.body.clear(); // ensure that the receive/message buffer is in a defined state again
 
             // call the callback and check for cancelation
-            auto proceed = m_receive_cb(std::move(msg), progress());
+            auto proceed = m_on_receive(std::move(msg), progress());
             if(!proceed) { m_cancel = true; }
         }
 
@@ -209,9 +218,9 @@ public:
             m_progress.uploadSpeed          = upSpeed;
         }
 
-        if(m_receive_cb) {
+        if(m_on_receive) {
             http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers);
-            auto proceed = m_receive_cb(std::move(msg), progress());
+            auto proceed = m_on_receive(std::move(msg), progress());
             if(!proceed) { m_cancel = true; }
         }
 
@@ -275,9 +284,9 @@ public:
 
         // call the receive callback a last time with the final
         // error code
-        if(m_receive_cb) {
+        if(m_on_receive) {
             assert(m_message_accum.body.empty());
-            m_receive_cb(m_message_accum, progress());
+            m_on_receive(m_message_accum, progress());
         }
 
         // set the final message data so it can be retrieved
@@ -362,10 +371,8 @@ void http::request::cancel() { m_impl->cancel(); }
 http::client::client() : connect_timeout(300), request_timeout(0) { }
 
 http::request http::client::request(
-    http::url                           url,
-    http::operation                     op,
-    std::function<bool(http::progress)> on_progress,
-    std::function<void(http::request)>  on_finish
+    http::url       url,
+    http::operation op
 ) {
     auto req = http::request();
 
@@ -373,31 +380,9 @@ http::request http::client::request(
         *this, std::move(url), std::move(op)
     );
 
-    req.m_impl->m_on_progress = std::move(on_progress);
-
-    if(on_finish) {
-        req.m_impl->m_on_finish = [=]() { on_finish(req); };
-    }
-
     req.m_impl->request();
 
     return req;
-}
-
-void http::client::request_stream(
-    std::function<bool(http::message data, http::progress progress)> receive_cb,
-    http::url       url,
-    http::operation op
-) {
-    assert(receive_cb);
-
-    auto res_impl = std::make_shared<http::request::impl>(
-        *this, std::move(url), std::move(op)
-    );
-
-    res_impl->m_receive_cb  = std::move(receive_cb);
-
-    res_impl->request();
 }
 
 void http::client::wait_for_all() { global().m_multi.wait_for_all(); }

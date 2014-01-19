@@ -52,6 +52,12 @@ namespace http {
         /// move into a private area once the request gets started.
         http::buffer put_data;
 
+        /// If put_file is specified the content of the referenced
+        /// file is used for a PUT operation. In order to avoid
+        /// multi-threading issues or object lifetime issues this
+        /// member will be cleared once the request gets started.
+        std::string put_file;
+
         /// This data will be used for a POST operation.
         /// In order to avoid multi-threading issues, object lifetime
         /// issues, or excessive memory copies, this data will be
@@ -67,6 +73,44 @@ namespace http {
         /// be used (default).
         size_t request_timeout;
 
+        /// If an on_progress callback is provided the callback
+        /// will be called periodically with the current
+        /// progress info; returning "false" from the progress
+        /// callback will cancel the corresponding request.
+        /// The on_progress member will be clear once a request
+        /// gets started.
+        std::function<bool(http::progress)> on_progress;
+
+        /// If an on_finish callback is provided the callback
+        /// will be called immediately after finishing the
+        /// request; the provided request object can then be
+        /// inspected whether the request finished successfully or
+        /// with a failure; the callback will be called from the
+        /// context of another thread so you need to ensure that
+        /// no multi-threading issues can occurr within the
+        /// callback implementation and the callback should
+        /// return as fast as possible since it will block
+        /// sending and receiving further data for other requests
+        /// running in parallel. The on_progress member will be
+        /// clear once a request gets started.
+        std::function<void(http::request)> on_finish;
+
+        /// If an on_receive callback is provided the callback
+        /// will be called each time new data has been received;
+        /// the callback will be called from the context of another
+        /// thread so you need to ensure that no multi-threading
+        /// issues can occurr within the callback implementation
+        /// and the callback should return as fast as possible since
+        /// it will block sending and receiving further data for other
+        /// requests running in parallel. The boolean return value of
+        /// the callback indicate whether the running request should
+        /// be aborted (false) or should go on (true). Note, that the
+        /// storage of the received data packets is the responsibility
+        /// of the on_receive callback and that it will not be added to
+        /// the data member of the returned request object. The on_receive
+        /// member will be clear once a request gets started.
+        std::function<bool(http::message data, http::progress progress)> on_receive;
+
         /// Starts the request and returns immediately.
         /// The result can be polled from the message-future
         /// object contained in the returned request object.
@@ -74,48 +118,9 @@ namespace http {
         /// actual progress and upload/download speed while
         /// the request is still running in a non-blocking
         /// manner. The running request can be canceled.
-        /// If an on_progress callback is provided the callback
-        /// will be called periodically with the current
-        /// progress info; returning "false" from the progress
-        /// callback will cancel the corresponding request.
-        /// If an on_finish callback is provided the callback
-        /// will be called immediately after finishing the
-        /// request; the provided request object can then be
-        /// queried whether the request finished successfully or
-        /// with a failure; the callback will be called from the
-        /// context of another thread so you need to ensure that
-        /// no multi-threading issues can ocurr within the
-        /// callback implementation and the callback should
-        /// return as fast as possible since it will block
-        /// sending and receiving further data for other requests
-        /// running in parallel.
         http::request request(
-            http::url                           url,
-            http::operation                     op          = http::HTTP_GET,
-            std::function<bool(http::progress)> on_progress = nullptr,
-            std::function<void(http::request)>  on_finish   = nullptr
-        );
-
-        /// This call is similiar to the one above but with
-        /// the added feature of registering a "progress
-        /// callback" which gets called back periodically, e.g.,
-        /// whenever new data has been received or to report
-        /// some progress. The newly received data together
-        /// with the information about the progress for the running
-        /// request are passed as arguments to the callback.
-        /// The return value of the callback indicates whether
-        /// the request should still be handled (true) or
-        /// canceled (false). Note that the callback can also be
-        /// called without newly received data but with only
-        /// a progress update. Therefore, the error_code within
-        /// the passed-in message object needs to be evaluated
-        /// and checked for HTTP_REQUEST_FINISHED,
-        /// HTTP_REQUEST_PROGRESS, HTTP_REQUEST_CANCELED; all
-        /// other positive values indicating an error.
-        void request_stream(
-            std::function<bool(http::message data, http::progress progress)> on_receive,
             http::url       url,
-            http::operation op          = http::HTTP_GET
+            http::operation op = http::HTTP_GET
         );
 
         static void wait_for_all();

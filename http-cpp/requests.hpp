@@ -41,11 +41,9 @@ namespace http {
         /// add the created 'request' object to this list of tracked requests,
         /// and return it also back to the caller.
         http::request request(
-            http::client&                       client,
-            http::url                           url,
-            http::operation                     op          = http::HTTP_GET,
-            std::function<bool(http::progress)> on_progress = nullptr,
-            std::function<void(http::request)>  on_finish   = nullptr
+            http::client&   client,
+            http::url       url,
+            http::operation op = http::HTTP_GET
         );
 
         /// Adds the given 'req' object to the list of tracked requests.

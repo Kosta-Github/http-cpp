@@ -282,7 +282,7 @@ static void perform_parallel_stream_requests(
     std::atomic<int> active_count(count);
 
     for(int i = 0; i < count; ++i) {
-        auto cb = [&](http::message msg, http::progress progress) -> bool {
+        client.on_receive = [&](http::message msg, http::progress progress) -> bool {
             switch(msg.error_code) {
                 case http::HTTP_REQUEST_PROGRESS: {
                     break;
@@ -299,8 +299,8 @@ static void perform_parallel_stream_requests(
             }
             return true;
         };
-        
-        client.request_stream(cb, url, http::HTTP_GET);
+
+        client.request(url);
     }
 
     while(active_count > 0) {
