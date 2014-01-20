@@ -28,6 +28,7 @@
 #include <http-cpp/utils.hpp>
 
 #include <atomic>
+#include <fstream>
 
 static bool contains(std::string const& str, std::string const& find) {
     return (str.find(find) != str.npos);
@@ -140,6 +141,24 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
+    "Test a GET request with writing into a receive file",
+    "[http][request][GET][file][localhost]"
+) {
+    auto url = LOCALHOST + "get_request";
+    auto write_filename = "write_file.txt";
+
+    auto client = http::client();
+    client.write_file = write_filename;
+    check_result(client.request(url, http::HTTP_GET).data().get(), "");
+
+    std::ifstream write_file(write_filename, std::ios::binary);
+    std::string line; std::getline(write_file, line);
+    CATCH_CHECK(line == "GET received");
+    write_file.close();
+    std::remove(write_filename);
+}
+
+CATCH_TEST_CASE(
     "Test a HEAD request",
     "[http][request][HEAD][localhost]"
 ) {
@@ -199,6 +218,25 @@ CATCH_TEST_CASE(
     auto client = http::client();
     client.put_data = put_data;
     check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + put_data);
+}
+
+CATCH_TEST_CASE(
+    "Test a PUT request for sending a file",
+    "[http][request][PUT][file][localhost]"
+) {
+    auto url = LOCALHOST + "put_request";
+    auto put_data = std::string("I am the PUT workload!");
+    auto put_filename = "put_file.txt";
+
+    auto put_file = std::ofstream(put_filename, std::ios::binary);
+    put_file << put_data;
+    put_file.close();
+
+    auto client = http::client();
+    client.put_file = put_filename;
+    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + put_data);
+
+    std::remove(put_filename);
 }
 
 CATCH_TEST_CASE(

@@ -12,7 +12,7 @@ elseif(HAS_CXX11)
 elseif(HAS_CXX0x)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 elseif(MSVC)
-#    add_definitions()
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
 endif()
 
 # check for adding a reference to the pthread lib

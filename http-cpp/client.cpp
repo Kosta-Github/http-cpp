@@ -30,11 +30,32 @@
 #include "impl/curl_share_wrap.hpp"
 
 #include <cstring>
+#include <cstdio>
 
 #undef min
 #undef max
 
 namespace {
+
+    static inline std::shared_ptr<FILE> open_file(
+        std::string const& filename,
+        const char* const flags
+    ) {
+        assert(flags);
+
+        if(filename.empty()) { return nullptr; }
+
+        std::shared_ptr<FILE> file(
+            std::fopen(filename.c_str(), flags),
+            [](FILE* f) { if(f) { std::fclose(f); } }
+        );
+
+        if(!file) {
+            throw std::runtime_error("could not open file: " + filename);
+        }
+
+        return file;
+    }
 
     struct global_data {
         global_data() : m_dummy_handle(curl_easy_init()) { }
@@ -112,7 +133,7 @@ struct http::request::impl :
         m_cancel(false),
         m_url(std::move(url)),
         m_operation(op),
-        m_put_progress(0),
+        m_put_data_progress(0),
         m_progress_mutex(),
         m_progress()
     {
@@ -138,6 +159,7 @@ struct http::request::impl :
             m_on_finish = [=]() { auto req = http::request(); req.m_impl = shared_from_this(); on_finish(req); };
             client.on_finish = nullptr;
         }
+
     }
 
     virtual ~impl() {
@@ -158,7 +180,10 @@ public:
     http::operation m_operation;
 
     http::buffer    m_put_data;
-    int64_t         m_put_progress;
+    int64_t         m_put_data_progress;
+
+    std::shared_ptr<FILE> m_put_file;
+    std::shared_ptr<FILE> m_write_file;
 
     http::post_data m_post_data;
 
@@ -192,14 +217,14 @@ public:
     }
 
     virtual size_t read(void* ptr, size_t bytes) override {
-        assert(0 <= m_put_progress);
-        assert(m_put_progress <= static_cast<int64_t>(m_put_data.size()));
+        assert(0 <= m_put_data_progress);
+        assert(m_put_data_progress <= static_cast<int64_t>(m_put_data.size()));
 
         if(m_cancel) { return 0; }
 
-        auto send_bytes = std::min(static_cast<int64_t>(bytes), static_cast<int64_t>(m_put_data.size()) - m_put_progress);
-        std::memcpy(ptr, m_put_data.data() + m_put_progress, send_bytes);
-        m_put_progress += send_bytes;
+        auto send_bytes = std::min(static_cast<int64_t>(bytes), static_cast<int64_t>(m_put_data.size()) - m_put_data_progress);
+        std::memcpy(ptr, m_put_data.data() + m_put_data_progress, send_bytes);
+        m_put_data_progress += send_bytes;
 
         return send_bytes;
     }
@@ -233,11 +258,20 @@ public:
     }
 
     virtual bool seek(int64_t offset, int origin) override {
-        switch(origin) {
-            case SEEK_SET:  m_put_progress  = offset;                       return true;
-            case SEEK_CUR:  m_put_progress += offset;                       return true;
-            case SEEK_END:  m_put_progress  = offset + m_put_data.size();   return true;
-            default:        assert(false);                                  return false;
+        if(m_put_file) {
+            switch(origin) {
+                case SEEK_SET:
+                case SEEK_CUR:
+                case SEEK_END:  return (std::fseek(m_put_file.get(), static_cast<long>(offset), origin) != 0);
+                default:        assert(false); return false;
+            }
+        } else {
+            switch(origin) {
+                case SEEK_SET:  m_put_data_progress  = offset;                      return true;
+                case SEEK_CUR:  m_put_data_progress += offset;                      return true;
+                case SEEK_END:  m_put_data_progress  = offset + m_put_data.size();  return true;
+                default:        assert(false);                                      return false;
+            }
         }
     }
 
@@ -289,6 +323,9 @@ public:
             m_on_receive(m_message_accum, progress());
         }
 
+        m_put_file.reset();
+        m_write_file.reset();
+
         // set the final message data so it can be retrieved
         // with the message-future object in the response object
         m_message_promise.set_value(std::move(m_message_accum));
@@ -309,6 +346,11 @@ public:
     }
 
     void request() {
+        if(m_write_file) {
+            curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, nullptr);
+            curl_easy_setopt(handle, CURLOPT_WRITEDATA,     m_write_file.get());
+        }
+
         // dispatch the HTTP operation
         switch(m_operation) {
             case http::HTTP_GET:    request_get();      start(); break;
@@ -321,6 +363,7 @@ public:
     }
 
     void request_get() {
+        assert(!m_put_file);
         assert(m_put_data.empty());
         assert(m_post_data.empty());
 
@@ -328,6 +371,7 @@ public:
     }
 
     void request_head() {
+        assert(!m_put_file);
         assert(m_put_data.empty());
         assert(m_post_data.empty());
 
@@ -338,11 +382,28 @@ public:
     void request_put() {
         assert(m_post_data.empty());
 
+        assert(m_put_data.empty() || !m_put_file);
+
+        curl_off_t size = static_cast<curl_off_t>(m_put_data.size());
+
+        if(m_put_file) {
+            // get the actual size of the file
+            std::fseek(m_put_file.get(), 0, SEEK_END);
+            std::fpos_t pos; std::fgetpos(m_put_file.get(), &pos);
+            std::rewind(m_put_file.get());
+            size = static_cast<curl_off_t>(pos);
+
+            // set the FILE pointer as read data in CURL
+            curl_easy_setopt(handle, CURLOPT_READFUNCTION,  nullptr);
+            curl_easy_setopt(handle, CURLOPT_READDATA,      m_put_file.get());
+        }
+
+        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  size);
         curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
-        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_put_data.size()));
     }
 
     void request_post() {
+        assert(!m_put_file);
         assert(m_put_data.empty());
 
         for(auto&& i : m_post_data) {
@@ -353,6 +414,7 @@ public:
     }
 
     void request_delete() {
+        assert(!m_put_file);
         assert(m_put_data.empty());
         assert(m_post_data.empty());
 
@@ -374,11 +436,17 @@ http::request http::client::request(
     http::url       url,
     http::operation op
 ) {
+    assert((put_data.empty() || put_file.empty()) && "put_data and put_file cannot be used at the same time");
+    assert((write_file.empty() || !on_receive) && "write_file and on_receive cannot be used at the same time");
+
     auto req = http::request();
 
     req.m_impl = std::make_shared<http::request::impl>(
         *this, std::move(url), std::move(op)
     );
+
+    req.m_impl->m_put_file      = open_file(put_file,   "rb");
+    req.m_impl->m_write_file    = open_file(write_file, "wb");
 
     req.m_impl->request();
 

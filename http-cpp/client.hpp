@@ -46,6 +46,30 @@ namespace http {
         /// from this client.
         http::headers headers;
 
+        /// If write_file is specified a file with the given filename
+        /// will be opened for writing and the received content will be
+        /// written to it. Note that the `body` member of the request
+        /// object will not be filled with the received content in this
+        /// case. If the file could not be opened an exception will be
+        /// thrown from the request() method.
+        std::string write_file;
+
+        /// If an on_receive callback is provided the callback
+        /// will be called each time new data has been received;
+        /// the callback will be called from the context of another
+        /// thread so you need to ensure that no multi-threading
+        /// issues can occurr within the callback implementation
+        /// and the callback should return as fast as possible since
+        /// it will block sending and receiving further data for other
+        /// requests running in parallel. The boolean return value of
+        /// the callback indicate whether the running request should
+        /// be aborted (false) or should go on (true). Note, that the
+        /// storage of the received data packets is the responsibility
+        /// of the on_receive callback and that it will not be added to
+        /// the data member of the returned request object. The on_receive
+        /// member will be clear once a request gets started.
+        std::function<bool(http::message data, http::progress progress)> on_receive;
+
         /// This data buffer will be used for a PUT operation.
         /// In order to avoid multi-threading issues, object lifetime
         /// issues, or excessive memory copies, this buffer will be
@@ -53,9 +77,7 @@ namespace http {
         http::buffer put_data;
 
         /// If put_file is specified the content of the referenced
-        /// file is used for a PUT operation. In order to avoid
-        /// multi-threading issues or object lifetime issues this
-        /// member will be cleared once the request gets started.
+        /// file is used for a PUT operation.
         std::string put_file;
 
         /// This data will be used for a POST operation.
@@ -94,22 +116,6 @@ namespace http {
         /// running in parallel. The on_progress member will be
         /// clear once a request gets started.
         std::function<void(http::request)> on_finish;
-
-        /// If an on_receive callback is provided the callback
-        /// will be called each time new data has been received;
-        /// the callback will be called from the context of another
-        /// thread so you need to ensure that no multi-threading
-        /// issues can occurr within the callback implementation
-        /// and the callback should return as fast as possible since
-        /// it will block sending and receiving further data for other
-        /// requests running in parallel. The boolean return value of
-        /// the callback indicate whether the running request should
-        /// be aborted (false) or should go on (true). Note, that the
-        /// storage of the received data packets is the responsibility
-        /// of the on_receive callback and that it will not be added to
-        /// the data member of the returned request object. The on_receive
-        /// member will be clear once a request gets started.
-        std::function<bool(http::message data, http::progress progress)> on_receive;
 
         /// Starts the request and returns immediately.
         /// The result can be polled from the message-future

@@ -124,18 +124,6 @@ namespace http {
                 }
             }
 
-            void set_write_file(FILE* write_file) {
-                assert(write_file);
-                curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, nullptr);
-                curl_easy_setopt(handle, CURLOPT_WRITEDATA,     write_file);
-            }
-
-            void set_read_file(FILE* read_file) {
-                assert(read_file);
-                curl_easy_setopt(handle, CURLOPT_READFUNCTION,  nullptr);
-                curl_easy_setopt(handle, CURLOPT_READDATA,      read_file);
-            }
-
         private:
             static size_t write_stub(void* ptr, size_t size, size_t nmemb, void* userdata) {
                 auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
