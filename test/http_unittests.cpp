@@ -228,7 +228,7 @@ CATCH_TEST_CASE(
     auto put_data = std::string("I am the PUT workload!");
     auto put_filename = "put_file.txt";
 
-    auto put_file = std::ofstream(put_filename, std::ios::binary);
+    std::ofstream put_file(put_filename, std::ios::binary);
     put_file << put_data;
     put_file.close();
 
