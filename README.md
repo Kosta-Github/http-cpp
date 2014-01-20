@@ -5,7 +5,8 @@ Provide a very simple, thread-safe, and portable interface to do HTTP requests i
 sample
 ======
 ```
-auto reply = http::client().request("http://www.google.com").data().get();
+auto client = http::client();
+auto reply = client.request("http://www.google.com").data().get();
 const std::string& body = reply.body;
 ```
 
