@@ -32,6 +32,10 @@
 #include <cstring>
 #include <cstdio>
 
+#if !defined(_WIN32)
+#   include <sys/stat.h>
+#endif // !defined(_WIN32)
+
 #undef min
 #undef max
 
