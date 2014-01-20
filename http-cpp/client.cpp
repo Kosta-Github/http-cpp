@@ -57,6 +57,29 @@ namespace {
         return file;
     }
 
+    static inline int64_t file_size(
+        std::string const& filename
+    ) {
+#if defined(_WIN32)
+        WIN32_FILE_ATTRIBUTE_DATA data;
+        if(GetFileAttributesExA(filename.c_str(), GetFileExInfoStandard, &data)) {
+            return static_cast<int64_t>((static_cast<uint64_t>(data.nFileSizeHigh) << 32) + static_cast<uint64_t>(data.nFileSizeLow));
+        }
+#elif defined(__APPLE__)
+        struct stat s;
+        if(stat(filename.c_str(), &s) == -1) {
+            return static_cast<int64_t>(s.st_size);
+        }
+#else
+        struct stat64 s;
+        if(stat64(filename.c_str(), &s) == -1) {
+            return static_cast<int64_t>(s.st_size);
+        }
+#endif
+
+        return -1;
+    }
+
     struct global_data {
         global_data() : m_dummy_handle(curl_easy_init()) { }
         ~global_data() { curl_easy_cleanup(m_dummy_handle); }
@@ -134,6 +157,7 @@ struct http::request::impl :
         m_url(std::move(url)),
         m_operation(op),
         m_put_data_progress(0),
+        m_put_file_size(0),
         m_progress_mutex(),
         m_progress()
     {
@@ -183,6 +207,8 @@ public:
     int64_t         m_put_data_progress;
 
     std::shared_ptr<FILE> m_put_file;
+    int64_t               m_put_file_size;
+
     std::shared_ptr<FILE> m_write_file;
 
     http::post_data m_post_data;
@@ -381,25 +407,18 @@ public:
 
     void request_put() {
         assert(m_post_data.empty());
-
         assert(m_put_data.empty() || !m_put_file);
 
-        curl_off_t size = static_cast<curl_off_t>(m_put_data.size());
+        auto size = static_cast<curl_off_t>(m_put_file ? m_put_file_size : m_put_data.size());
+
+        curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
+        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  size);
 
         if(m_put_file) {
-            // get the actual size of the file
-            std::fseek(m_put_file.get(), 0, SEEK_END);
-            std::fpos_t pos; std::fgetpos(m_put_file.get(), &pos);
-            std::rewind(m_put_file.get());
-            size = static_cast<curl_off_t>(pos);
-
             // set the FILE pointer as read data in CURL
             curl_easy_setopt(handle, CURLOPT_READFUNCTION,  nullptr);
             curl_easy_setopt(handle, CURLOPT_READDATA,      m_put_file.get());
         }
-
-        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  size);
-        curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
     }
 
     void request_post() {
@@ -447,6 +466,10 @@ http::request http::client::request(
 
     req.m_impl->m_put_file      = open_file(put_file,   "rb");
     req.m_impl->m_write_file    = open_file(write_file, "wb");
+
+    if(req.m_impl->m_put_file) {
+        req.m_impl->m_put_file_size = file_size(put_file);
+    }
 
     req.m_impl->request();
 
