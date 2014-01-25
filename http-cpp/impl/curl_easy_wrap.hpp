@@ -74,6 +74,8 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_HEADERDATA,        this);
                 curl_easy_setopt(handle, CURLOPT_SEEKFUNCTION,      seek_stub);
                 curl_easy_setopt(handle, CURLOPT_SEEKDATA,          this);
+                curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION,     debug_stub);
+                curl_easy_setopt(handle, CURLOPT_DEBUGDATA,         this);
 
 #if (LIBCURL_VERSION_NUM >= 0x072000)
                 curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION,  progress_stub);
@@ -91,6 +93,7 @@ namespace http {
             virtual void   header(const void* ptr, size_t bytes) = 0;
             virtual bool   seek(int64_t offset, int origin) = 0;
             virtual bool   progress(size_t downCur, size_t downTotal, size_t downSpeed, size_t upCur, size_t upTotal, size_t upSpeed) = 0;
+            virtual void   debug(int type, std::string const& msg) = 0;
             virtual void   finish(CURLcode code, int status) = 0;
             virtual void   cancel() = 0;
 
@@ -150,6 +153,13 @@ namespace http {
                 return (wrap->seek(off, origin) ? CURL_SEEKFUNC_OK : CURL_SEEKFUNC_FAIL);
             }
 
+            static int debug_stub(CURL* handle, curl_infotype type, const char* msg, size_t bytes, void* userdata) {
+                auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
+                auto str = std::string(msg, bytes); // add a terminating zero to the message
+                wrap->debug(static_cast<int>(type), str);
+                return 0;
+            }
+
 #if (LIBCURL_VERSION_NUM >= 0x072000)
             static int progress_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
 #else // (LIBCURL_VERSION_NUM >= 0x072000)
@@ -167,7 +177,7 @@ namespace http {
                 );
                 return (res ? 0 : 1);
             }
-            
+
         public:
             CURL* const     handle;
             curl_slist*     headers;

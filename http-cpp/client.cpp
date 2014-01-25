@@ -182,12 +182,16 @@ struct http::request::impl :
         swap(m_on_progress, client.on_progress);
         swap(m_on_receive,  client.on_receive);
 
+        swap(m_on_debug,    client.on_debug);
+        if(m_on_debug) {
+            curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
+        }
+
         auto on_finish = client.on_finish;
         if(on_finish) {
             m_on_finish = [=]() { auto req = http::request(); req.m_impl = shared_from_this(); on_finish(req); };
             client.on_finish = nullptr;
         }
-
     }
 
     virtual ~impl() {
@@ -219,6 +223,7 @@ public:
 
     std::function<bool(http::message, http::progress)>  m_on_receive;
     std::function<void()>                               m_on_finish;
+    std::function<void(std::string const&)>             m_on_debug;
 
     std::mutex                          m_progress_mutex;
     http::progress                      m_progress;
@@ -257,6 +262,22 @@ public:
         m_put_data_progress += send_bytes;
 
         return send_bytes;
+    }
+
+    virtual void debug(int type, std::string const& msg) override {
+        if(m_on_debug) {
+            auto str = std::string("curl: ");
+            switch(type) {
+                case CURLINFO_HEADER_IN:    str += "[HEADER_IN]:  "; break;
+                case CURLINFO_HEADER_OUT:   str += "[HEADER_OUT]: "; break;
+                case CURLINFO_DATA_IN:      str += "[DATA_IN]:    "; break;
+                case CURLINFO_DATA_OUT:     str += "[DATA_OUT]:   "; break;
+                case CURLINFO_TEXT:
+                default:                    str += "[TEXT]:       "; break;
+            }
+            str += msg;
+            m_on_debug(str);
+        }
     }
 
     virtual bool progress(

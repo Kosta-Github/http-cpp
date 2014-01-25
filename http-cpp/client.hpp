@@ -117,6 +117,18 @@ namespace http {
         /// clear once a request gets started.
         std::function<void(http::request)> on_finish;
 
+        /// If an on_debug callback is provided the callback
+        /// will be called with debugging information passed
+        /// through directly from libcurl; the callback will be
+        /// called from the context of another thread so you
+        /// need to ensure that no multi-threading issues can
+        /// occurr within the callback implementation and the
+        /// callback should return as fast as possible since it
+        /// will block sending and receiving further data for
+        /// other requests running in parallel. The on_debug
+        /// member will be clear once a request gets started.
+        std::function<void(std::string const&)> on_debug;
+
         /// Starts the request and returns immediately.
         /// The result can be polled from the message-future
         /// object contained in the returned request object.

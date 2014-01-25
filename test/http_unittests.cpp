@@ -269,6 +269,23 @@ CATCH_TEST_CASE(
     }
 }
 
+CATCH_TEST_CASE(
+    "Test the on_debug callback is working",
+    "[http][request][200][localhost][debug]"
+) {
+    auto url = LOCALHOST + "HTTP_200_OK";
+
+    auto debug_string = std::string();
+    auto client = http::client();
+    client.on_debug = [&](std::string const& msg) { debug_string += msg; };
+    check_result(client.request(url).data().get(), "URL found");
+
+    CATCH_CHECK(contains(debug_string, "curl: [TEXT]: "));
+    CATCH_CHECK(contains(debug_string, "curl: [HEADER_IN]: "));
+    CATCH_CHECK(contains(debug_string, "curl: [HEADER_OUT]: "));
+    CATCH_CHECK(contains(debug_string, "curl: [DATA_IN]: "));
+}
+
 static void perform_parallel_requests(
     const size_t count,
     const http::url url,
