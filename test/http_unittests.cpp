@@ -73,6 +73,16 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
+    "Test for an empty error_string on HTTP_200_OK status",
+    "[http][request][200][localhost][error_string]"
+) {
+    auto url = LOCALHOST + "HTTP_200_OK";
+    auto reply = http::client().request(url).data().get();
+    check_result(reply, "URL found");
+    CATCH_CHECK(reply.error_string == "");
+}
+
+CATCH_TEST_CASE(
     "Test canceling a running request",
     "[http][request][cancel][localhost]"
 ) {
@@ -107,6 +117,7 @@ CATCH_TEST_CASE(
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code > 0);
+    CATCH_CHECK(data.error_string != "");
     CATCH_CHECK(duration < 3); // should be clearly below the 3 second the web server will delay to answer the request
 }
 
@@ -119,6 +130,7 @@ CATCH_TEST_CASE(
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code > 0);
+    CATCH_CHECK(data.error_string != "");
 }
 
 CATCH_TEST_CASE(
@@ -130,6 +142,7 @@ CATCH_TEST_CASE(
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code > 0);
+    CATCH_CHECK(data.error_string != "");
 }
 
 CATCH_TEST_CASE(

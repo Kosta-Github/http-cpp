@@ -38,17 +38,20 @@ namespace http {
     struct message {
         message(
             http::error_code ec = http::HTTP_REQUEST_PROGRESS,
+            std::string      es = std::string(),
             http::status     s  = http::HTTP_000_UNKNOWN,
             http::headers    h  = http::headers(),
             http::buffer     b  = http::buffer()
         ) :
             error_code(ec),
+            error_string(std::move(es)),
             status(s),
             headers(std::move(h)),
             body(std::move(b))
         { }
 
         http::error_code    error_code;
+        std::string         error_string;
         http::status        status;
         http::headers       headers;
         http::buffer        body;
@@ -58,6 +61,7 @@ namespace http {
         message& operator=(message&& o) HTTP_CPP_NOEXCEPT {
             if(this != &o) {
                 error_code  = std::move(o.error_code);
+                error_sring = std::move(o.error_string);
                 status      = std::move(o.status);
                 headers     = std::move(o.headers);
                 body        = std::move(o.body);

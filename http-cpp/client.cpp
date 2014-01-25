@@ -155,7 +155,7 @@ struct http::request::impl :
         curl_easy_wrap(),
         m_message_promise(),
         m_message_future(m_message_promise.get_future().share()),
-        m_message_accum(http::HTTP_REQUEST_PROGRESS, http::HTTP_000_UNKNOWN),
+        m_message_accum(http::HTTP_REQUEST_PROGRESS, error_buffer, http::HTTP_000_UNKNOWN),
         finished_future(finished_promise.get_future()),
         m_cancel(false),
         m_url(std::move(url)),
@@ -240,7 +240,7 @@ public:
 
         if(m_on_receive) {
             // call the receive callback with the received data immediately
-            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers, std::move(m_message_accum.body));
+            http::message msg(http::HTTP_REQUEST_PROGRESS, error_buffer, http::HTTP_200_OK, m_message_accum.headers, std::move(m_message_accum.body));
             m_message_accum.body.clear(); // ensure that the receive/message buffer is in a defined state again
 
             // call the callback and check for cancelation
@@ -295,7 +295,7 @@ public:
         }
 
         if(m_on_receive) {
-            http::message msg(http::HTTP_REQUEST_PROGRESS, http::HTTP_200_OK, m_message_accum.headers);
+            http::message msg(http::HTTP_REQUEST_PROGRESS, error_buffer, http::HTTP_200_OK, m_message_accum.headers);
             auto proceed = m_on_receive(std::move(msg), progress());
             if(!proceed) { m_cancel = true; }
         }
@@ -364,8 +364,9 @@ public:
             error = http::HTTP_REQUEST_CANCELED;
         }
 
-        m_message_accum.error_code  = error;
-        m_message_accum.status      = static_cast<http::status>(status);
+        m_message_accum.error_code      = error;
+        m_message_accum.error_string    = error_buffer;
+        m_message_accum.status          = static_cast<http::status>(status);
 
         // call the receive callback a last time with the final
         // error code

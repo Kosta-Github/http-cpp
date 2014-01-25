@@ -39,6 +39,8 @@ namespace http {
             {
                 assert(handle);
 
+                error_buffer[0] = 0x00; // ensure a zero-terminating of the error buffer
+
                 if(!master) { set_default_values(); }
                 set_callbacks();
             }
@@ -62,6 +64,7 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION,        1);
                 curl_easy_setopt(handle, CURLOPT_MAXREDIRS,             5); // max 5 redirects
                 curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE,         1);
+                curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,           error_buffer);
             }
 
             void set_callbacks() {
@@ -183,6 +186,7 @@ namespace http {
             curl_slist*     headers;
             curl_httppost*  post_data;
             curl_httppost*  post_data_last;
+            char            error_buffer[CURL_ERROR_SIZE];
 
         private:
             curl_easy_wrap(curl_easy_wrap const&); // = delete;
