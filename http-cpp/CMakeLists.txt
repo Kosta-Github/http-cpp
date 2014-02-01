@@ -27,11 +27,11 @@ add_library(
 	client.hpp
 	error_code.cpp
 	error_code.hpp
+	form_data.hpp
 	http-cpp.hpp
 	message.hpp
 	operation.cpp
 	operation.hpp
-	post_data.hpp
 	progress.hpp
 	status.cpp
 	status.hpp

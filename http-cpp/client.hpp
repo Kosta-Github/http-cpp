@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "post_data.hpp"
+#include "form_data.hpp"
 #include "request.hpp"
 
 #include <cassert>
@@ -46,13 +46,58 @@ namespace http {
         /// from this client.
         http::headers headers;
 
-        /// If write_file is specified a file with the given filename
+        /// If receive_file is specified a file with the given filename
         /// will be opened for writing and the received content will be
         /// written to it. Note that the `body` member of the request
         /// object will not be filled with the received content in this
-        /// case. If the file could not be opened an exception will be
+        /// case.
+        /// If the file could not be opened for writing an exception will be
         /// thrown from the request() method.
-        std::string write_file;
+        std::string receive_file;
+
+        /// This data buffer will be used for sending data from the client
+        /// to the HTTP server. Note that you should not send data with
+        /// some specific HTTP request methods such as GET or DELETE.
+        /// In order to avoid multi-threading issues, object lifetime
+        /// issues, or excessive memory copies, this buffer will be
+        /// move into a private area once the request gets started.
+        http::buffer send_data;
+
+        /// If send_file is specified the content of the referenced
+        /// file is used for sending from the client to the server.
+        /// See also the description for the send_data member.
+        /// If the file could not be opened for reading an exception
+        /// will be thrown from the request() method.
+        std::string send_file;
+
+        /// This post_data will be send for a POST request from the client
+        /// to the server. In order to avoid multi-threading issues, object
+        /// lifetime issues, or excessive memory copies, this data will
+        /// be move into a private area once the request gets started.
+        http::form_data post_form;
+
+        /// Specifies the maximum time in seconds that a connect is
+        /// allowed to get established. Default value is 300 seconds.
+        size_t connect_timeout;
+
+        /// Specifies the maximum time in seconds that a whole request
+        /// can run before it times out. Set to 0 if no timeout should
+        /// be used (default).
+        size_t request_timeout;
+
+        /// If an on_finish callback is provided the callback
+        /// will be called immediately after finishing the
+        /// request; the provided request object can then be
+        /// inspected whether the request finished successfully or
+        /// with a failure; the callback will be called from the
+        /// context of another thread so you need to ensure that
+        /// no multi-threading issues can occurr within the
+        /// callback implementation and the callback should
+        /// return as fast as possible since it will block
+        /// sending and receiving further data for other requests
+        /// running in parallel. The on_progress member will be
+        /// clear once a request gets started.
+        std::function<void(http::request)> on_finish;
 
         /// If an on_receive callback is provided the callback
         /// will be called each time new data has been received;
@@ -70,31 +115,6 @@ namespace http {
         /// member will be clear once a request gets started.
         std::function<bool(http::message data, http::progress progress)> on_receive;
 
-        /// This data buffer will be used for a PUT operation.
-        /// In order to avoid multi-threading issues, object lifetime
-        /// issues, or excessive memory copies, this buffer will be
-        /// move into a private area once the request gets started.
-        http::buffer put_data;
-
-        /// If put_file is specified the content of the referenced
-        /// file is used for a PUT operation.
-        std::string put_file;
-
-        /// This data will be used for a POST operation.
-        /// In order to avoid multi-threading issues, object lifetime
-        /// issues, or excessive memory copies, this data will be
-        /// move into a private area once the request gets started.
-        http::post_data post_data;
-
-        /// Specifies the maximum time in seconds that a connect is
-        /// allowed to get established. Default value is 300 seconds.
-        size_t connect_timeout;
-
-        /// Specifies the maximum time in seconds that a whole request
-        /// can run before it times out. Set to 0 if no timeout should
-        /// be used (default).
-        size_t request_timeout;
-
         /// If an on_progress callback is provided the callback
         /// will be called periodically with the current
         /// progress info; returning "false" from the progress
@@ -102,20 +122,6 @@ namespace http {
         /// The on_progress member will be clear once a request
         /// gets started.
         std::function<bool(http::progress)> on_progress;
-
-        /// If an on_finish callback is provided the callback
-        /// will be called immediately after finishing the
-        /// request; the provided request object can then be
-        /// inspected whether the request finished successfully or
-        /// with a failure; the callback will be called from the
-        /// context of another thread so you need to ensure that
-        /// no multi-threading issues can occurr within the
-        /// callback implementation and the callback should
-        /// return as fast as possible since it will block
-        /// sending and receiving further data for other requests
-        /// running in parallel. The on_progress member will be
-        /// clear once a request gets started.
-        std::function<void(http::request)> on_finish;
 
         /// If an on_debug callback is provided the callback
         /// will be called with debugging information passed

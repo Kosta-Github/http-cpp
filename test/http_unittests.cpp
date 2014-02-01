@@ -158,17 +158,17 @@ CATCH_TEST_CASE(
     "[http][request][GET][file][localhost]"
 ) {
     auto url = LOCALHOST + "get_request";
-    auto write_filename = "write_file.txt";
+    auto receive_filename = "receive_file.txt";
 
     auto client = http::client();
-    client.write_file = write_filename;
+    client.receive_file = receive_filename;
     check_result(client.request(url, http::HTTP_GET).data().get(), "");
 
-    std::ifstream write_file(write_filename, std::ios::binary);
-    std::string line; std::getline(write_file, line);
+    std::ifstream receive_file(receive_filename, std::ios::binary);
+    std::string line; std::getline(receive_file, line);
     CATCH_CHECK(line == "GET received");
-    write_file.close();
-    std::remove(write_filename);
+    receive_file.close();
+    std::remove(receive_filename);
 }
 
 CATCH_TEST_CASE(
@@ -180,18 +180,29 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Test a POST request",
+    "Test a POST request for sending data directly",
+    "[http][request][POST][localhost]"
+) {
+    auto url = LOCALHOST + "post_request";
+    auto send_data = std::string("I am the POST workload!");
+    auto client = http::client();
+    client.send_data = send_data;
+    check_result(client.request(url, http::HTTP_POST).data().get(), "POST received: " + send_data);
+}
+
+CATCH_TEST_CASE(
+    "Test a POST request for sending form data",
     "[http][request][POST][localhost]"
 ) {
     auto url = LOCALHOST + "post_request";
 
-    auto post_data = http::post_data();
-    post_data.emplace_back("library",   "library_http-cpp_library", "binary");
-    post_data.emplace_back("age",       "age_42_age",               "int");
-    post_data.emplace_back("color",     "color_red_color");
+    auto post_form = http::form_data();
+    post_form.emplace_back("library",   "library_http-cpp_library", "binary");
+    post_form.emplace_back("age",       "age_42_age",               "int");
+    post_form.emplace_back("color",     "color_red_color");
 
     auto client = http::client();
-    client.post_data = post_data;
+    client.post_form = post_form;
     auto data = client.request(url, http::HTTP_POST).data().get();
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
@@ -203,7 +214,7 @@ CATCH_TEST_CASE(
     CATCH_CAPTURE(data.body);
     CATCH_CHECK(contains(data.body, "POST received: "));
 
-    for(auto&& i : post_data) {
+    for(auto&& i : post_form) {
         // check form name
         auto find_name = "Content-Disposition: form-data; name=\"" + i.name + "\"";
         CATCH_CAPTURE(find_name);
@@ -227,10 +238,10 @@ CATCH_TEST_CASE(
     "[http][request][PUT][localhost]"
 ) {
     auto url = LOCALHOST + "put_request";
-    auto put_data = std::string("I am the PUT workload!");
+    auto send_data = std::string("I am the PUT workload!");
     auto client = http::client();
-    client.put_data = put_data;
-    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + put_data);
+    client.send_data = send_data;
+    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + send_data);
 }
 
 CATCH_TEST_CASE(
@@ -238,18 +249,18 @@ CATCH_TEST_CASE(
     "[http][request][PUT][file][localhost]"
 ) {
     auto url = LOCALHOST + "put_request";
-    auto put_data = std::string("I am the PUT workload!");
-    auto put_filename = "put_file.txt";
+    auto send_data = std::string("I am the PUT workload!");
+    auto send_filename = "put_file.txt";
 
-    std::ofstream put_file(put_filename, std::ios::binary);
-    put_file << put_data;
-    put_file.close();
+    std::ofstream send_file(send_filename, std::ios::binary);
+    send_file << send_data;
+    send_file.close();
 
     auto client = http::client();
-    client.put_file = put_filename;
-    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + put_data);
+    client.send_file = send_filename;
+    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + send_data);
 
-    std::remove(put_filename);
+    std::remove(send_filename);
 }
 
 CATCH_TEST_CASE(

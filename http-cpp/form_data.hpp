@@ -29,8 +29,8 @@
 
 namespace http {
 
-    struct post_content {
-        inline post_content(std::string n, http::buffer c, std::string t = "") :
+    struct form_content {
+        inline form_content(std::string n, http::buffer c, std::string t = "") :
             name(std::move(n)), content(std::move(c)), type(std::move(t))
         {
             assert(!name.empty());
@@ -41,8 +41,8 @@ namespace http {
         std::string     type;
 
 #if defined(HTTP_CPP_NEED_EXPLICIT_MOVE)
-        post_content(post_content&& o) HTTP_CPP_NOEXCEPT { operator=(std::move(o)); }
-        post_content& operator=(post_content&& o) HTTP_CPP_NOEXCEPT {
+        form_content(form_content&& o) HTTP_CPP_NOEXCEPT { operator=(std::move(o)); }
+        form_content& operator=(form_content&& o) HTTP_CPP_NOEXCEPT {
             if(this != &o) {
                 name    = std::move(o.name);
                 content = std::move(o.content);
@@ -53,6 +53,6 @@ namespace http {
 #endif // defined(HTTP_CPP_NEED_EXPLICIT_MOVE)
     };
 
-    typedef std::vector<post_content> post_data;
+    typedef std::vector<form_content> form_data;
 
 } // namespace http

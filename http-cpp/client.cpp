@@ -160,8 +160,8 @@ struct http::request::impl :
         m_cancel(false),
         m_url(std::move(url)),
         m_operation(op),
-        m_put_data_progress(0),
-        m_put_file_size(0),
+        m_send_data_progress(0),
+        m_send_file_size(0),
         m_progress_mutex(),
         m_progress()
     {
@@ -176,8 +176,8 @@ struct http::request::impl :
         }
 
         using std::swap;
-        swap(m_put_data,    client.put_data);
-        swap(m_post_data,   client.post_data);
+        swap(m_send_data,   client.send_data);
+        swap(m_post_form,   client.post_form);
 
         swap(m_on_progress, client.on_progress);
         swap(m_on_receive,  client.on_receive);
@@ -211,15 +211,15 @@ public:
     http::url       m_url;
     http::operation m_operation;
 
-    http::buffer    m_put_data;
-    int64_t         m_put_data_progress;
+    http::buffer    m_send_data;
+    int64_t         m_send_data_progress;
 
-    std::shared_ptr<FILE> m_put_file;
-    int64_t               m_put_file_size;
+    std::shared_ptr<FILE> m_send_file;
+    int64_t               m_send_file_size;
 
-    std::shared_ptr<FILE> m_write_file;
+    http::form_data m_post_form;
 
-    http::post_data m_post_data;
+    std::shared_ptr<FILE> m_receive_file;
 
     std::function<bool(http::message, http::progress)>  m_on_receive;
     std::function<void()>                               m_on_finish;
@@ -252,14 +252,14 @@ public:
     }
 
     virtual size_t read(void* ptr, size_t bytes) override {
-        assert(0 <= m_put_data_progress);
-        assert(m_put_data_progress <= static_cast<int64_t>(m_put_data.size()));
+        assert(0 <= m_send_data_progress);
+        assert(m_send_data_progress <= static_cast<int64_t>(m_send_data.size()));
 
         if(m_cancel) { return 0; }
 
-        auto send_bytes = std::min(static_cast<int64_t>(bytes), static_cast<int64_t>(m_put_data.size()) - m_put_data_progress);
-        std::memcpy(ptr, m_put_data.data() + m_put_data_progress, send_bytes);
-        m_put_data_progress += send_bytes;
+        auto send_bytes = std::min(static_cast<int64_t>(bytes), static_cast<int64_t>(m_send_data.size()) - m_send_data_progress);
+        std::memcpy(ptr, m_send_data.data() + m_send_data_progress, send_bytes);
+        m_send_data_progress += send_bytes;
 
         return send_bytes;
     }
@@ -309,19 +309,19 @@ public:
     }
 
     virtual bool seek(int64_t offset, int origin) override {
-        if(m_put_file) {
+        if(m_send_file) {
             switch(origin) {
                 case SEEK_SET:
                 case SEEK_CUR:
-                case SEEK_END:  return (std::fseek(m_put_file.get(), static_cast<long>(offset), origin) != 0);
+                case SEEK_END:  return (std::fseek(m_send_file.get(), static_cast<long>(offset), origin) != 0);
                 default:        assert(false); return false;
             }
         } else {
             switch(origin) {
-                case SEEK_SET:  m_put_data_progress  = offset;                      return true;
-                case SEEK_CUR:  m_put_data_progress += offset;                      return true;
-                case SEEK_END:  m_put_data_progress  = offset + m_put_data.size();  return true;
-                default:        assert(false);                                      return false;
+                case SEEK_SET:  m_send_data_progress  = offset;                         return true;
+                case SEEK_CUR:  m_send_data_progress += offset;                         return true;
+                case SEEK_END:  m_send_data_progress  = offset + m_send_data.size();    return true;
+                default:        assert(false);                                          return false;
             }
         }
     }
@@ -375,8 +375,8 @@ public:
             m_on_receive(m_message_accum, progress());
         }
 
-        m_put_file.reset();
-        m_write_file.reset();
+        m_send_file.reset();
+        m_receive_file.reset();
 
         // set the final message data so it can be retrieved
         // with the message-future object in the response object
@@ -398,9 +398,9 @@ public:
     }
 
     void request() {
-        if(m_write_file) {
+        if(m_receive_file) {
             curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, nullptr);
-            curl_easy_setopt(handle, CURLOPT_WRITEDATA,     m_write_file.get());
+            curl_easy_setopt(handle, CURLOPT_WRITEDATA,     m_receive_file.get());
         }
 
         // dispatch the HTTP operation
@@ -408,60 +408,74 @@ public:
             case http::HTTP_GET:    request_get();      start(); break;
             case http::HTTP_HEAD:   request_head();     start(); break;
             case http::HTTP_PUT:    request_put();      start(); break;
-            case http::HTTP_DELETE: request_delete();   start(); break;
             case http::HTTP_POST:   request_post();     start(); break;
+            case http::HTTP_DELETE: request_delete();   start(); break;
             default:                finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
         }
     }
 
     void request_get() {
-        assert(!m_put_file);
-        assert(m_put_data.empty());
-        assert(m_post_data.empty());
+        assert(!m_send_file);
+        assert(m_send_data.empty());
+        assert(m_post_form.empty());
 
         curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
     }
 
     void request_head() {
-        assert(!m_put_file);
-        assert(m_put_data.empty());
-        assert(m_post_data.empty());
+        assert(!m_send_file);
+        assert(m_send_data.empty());
+        assert(m_post_form.empty());
 
         curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
         curl_easy_setopt(handle, CURLOPT_NOBODY,    1);
     }
 
-    void request_put() {
-        assert(m_post_data.empty());
-        assert(m_put_data.empty() || !m_put_file);
+    void prepare_send_data() {
+        assert(m_post_form.empty());
+        assert(!m_send_data.empty() || m_send_file);
 
-        auto size = static_cast<curl_off_t>(m_put_file ? m_put_file_size : m_put_data.size());
+        if(!m_send_data.empty()) {
+            assert(!m_send_file);
+            curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_send_data.size()));
+        }
 
-        curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
-        curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  size);
+        if(m_send_file) {
+            assert(m_send_data.empty());
 
-        if(m_put_file) {
             // set the FILE pointer as read data in CURL
-            curl_easy_setopt(handle, CURLOPT_READFUNCTION,  nullptr);
-            curl_easy_setopt(handle, CURLOPT_READDATA,      m_put_file.get());
+            curl_easy_setopt(handle, CURLOPT_READFUNCTION,      nullptr);
+            curl_easy_setopt(handle, CURLOPT_READDATA,          m_send_file.get());
+            curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_send_file_size));
         }
     }
 
+    void request_put() {
+        assert(m_post_form.empty());
+        prepare_send_data();
+        curl_easy_setopt(handle, CURLOPT_UPLOAD,    1);
+    }
+    
     void request_post() {
-        assert(!m_put_file);
-        assert(m_put_data.empty());
+        if(m_post_form.empty()) {
+            prepare_send_data();
+            curl_easy_setopt(handle, CURLOPT_UPLOAD,        1);
+            curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "POST");
+        } else {
+            assert(m_send_data.empty());
+            assert(!m_send_file);
 
-        for(auto&& i : m_post_data) {
-            add_post_data(i.name, i.content, i.type);
+            for(auto&& i : m_post_form) {
+                add_form_data(i.name, i.content, i.type);
+            }
+            curl_easy_setopt(handle, CURLOPT_HTTPPOST, post_data);
         }
-
-        curl_easy_setopt(handle, CURLOPT_HTTPPOST,  post_data);
     }
 
     void request_delete() {
-        assert(!m_put_file);
-        assert(m_put_data.empty());
-        assert(m_post_data.empty());
+        assert(!m_send_file);
+        assert(m_send_data.empty());
+        assert(m_post_form.empty());
 
         curl_easy_setopt(handle, CURLOPT_HTTPGET,       1);
         curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
@@ -481,20 +495,17 @@ http::request http::client::request(
     http::url       url,
     http::operation op
 ) {
-    assert((put_data.empty() || put_file.empty()) && "put_data and put_file cannot be used at the same time");
-    assert((write_file.empty() || !on_receive) && "write_file and on_receive cannot be used at the same time");
-
     auto req = http::request();
 
     req.m_impl = std::make_shared<http::request::impl>(
         *this, std::move(url), std::move(op)
     );
 
-    req.m_impl->m_put_file      = open_file(put_file,   "rb");
-    req.m_impl->m_write_file    = open_file(write_file, "wb");
+    req.m_impl->m_send_file     = open_file(send_file,      "rb");
+    req.m_impl->m_receive_file  = open_file(receive_file,   "wb");
 
-    if(req.m_impl->m_put_file) {
-        req.m_impl->m_put_file_size = file_size(put_file);
+    if(req.m_impl->m_send_file) {
+        req.m_impl->m_send_file_size = file_size(send_file);
     }
 
     req.m_impl->request();

@@ -107,7 +107,7 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
             }
 
-            void add_post_data(std::string const& key, http::buffer const& value, std::string const& type) {
+            void add_form_data(std::string const& key, http::buffer const& value, std::string const& type) {
                 if(type.empty()) {
                     curl_formadd(
                         &post_data, &post_data_last,
