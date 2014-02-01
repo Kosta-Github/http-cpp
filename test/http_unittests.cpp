@@ -191,6 +191,25 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
+    "Test a POST request for sending a file",
+    "[http][request][POST][file][localhost]"
+) {
+    auto url = LOCALHOST + "post_request";
+    auto send_data = std::string("I am the POST workload!");
+    auto send_filename = "post_file.txt";
+
+    std::ofstream send_file(send_filename, std::ios::binary);
+    send_file << send_data;
+    send_file.close();
+
+    auto client = http::client();
+    client.send_file = send_filename;
+    check_result(client.request(url, http::HTTP_POST).data().get(), "POST received: " + send_data);
+    
+    std::remove(send_filename);
+}
+
+CATCH_TEST_CASE(
     "Test a POST request for sending form data",
     "[http][request][POST][localhost]"
 ) {
