@@ -149,15 +149,15 @@ CATCH_TEST_CASE(
     "Test a GET request",
     "[http][request][GET][localhost]"
 ) {
-    auto url = LOCALHOST + "get_request";
-    check_result(http::client().request(url, http::HTTP_GET).data().get(), "GET received");
+    auto url = LOCALHOST + "echo_request";
+    check_result(http::client().request(url, http::HTTP_GET).data().get(), "GET received: ");
 }
 
 CATCH_TEST_CASE(
     "Test a GET request with writing into a receive file",
     "[http][request][GET][file][localhost]"
 ) {
-    auto url = LOCALHOST + "get_request";
+    auto url = LOCALHOST + "echo_request";
     auto receive_filename = "receive_file.txt";
 
     auto client = http::client();
@@ -166,7 +166,7 @@ CATCH_TEST_CASE(
 
     std::ifstream receive_file(receive_filename, std::ios::binary);
     std::string line; std::getline(receive_file, line);
-    CATCH_CHECK(line == "GET received");
+    CATCH_CHECK(line == "GET received: ");
     receive_file.close();
     std::remove(receive_filename);
 }
@@ -175,7 +175,7 @@ CATCH_TEST_CASE(
     "Test a HEAD request",
     "[http][request][HEAD][localhost]"
 ) {
-    auto url = LOCALHOST + "head_request";
+    auto url = LOCALHOST + "echo_request";
     check_result(http::client().request(url, http::HTTP_HEAD).data().get(), ""); // the body needs to be empty for a HEAD request
 }
 
@@ -183,7 +183,7 @@ CATCH_TEST_CASE(
     "Test a POST request for sending data directly",
     "[http][request][POST][localhost]"
 ) {
-    auto url = LOCALHOST + "post_request";
+    auto url = LOCALHOST + "echo_request";
     auto send_data = std::string("I am the POST workload!");
     auto client = http::client();
     client.send_data = send_data;
@@ -194,7 +194,7 @@ CATCH_TEST_CASE(
     "Test a POST request for sending a file",
     "[http][request][POST][file][localhost]"
 ) {
-    auto url = LOCALHOST + "post_request";
+    auto url = LOCALHOST + "echo_request";
     auto send_data = std::string("I am the POST workload!");
     auto send_filename = "post_file.txt";
 
@@ -213,7 +213,7 @@ CATCH_TEST_CASE(
     "Test a POST request for sending form data",
     "[http][request][POST][localhost]"
 ) {
-    auto url = LOCALHOST + "post_request";
+    auto url = LOCALHOST + "echo_request";
 
     auto post_form = http::form_data();
     post_form.emplace_back("library",   "library_http-cpp_library", "binary");
@@ -256,7 +256,7 @@ CATCH_TEST_CASE(
     "Test a PUT request",
     "[http][request][PUT][localhost]"
 ) {
-    auto url = LOCALHOST + "put_request";
+    auto url = LOCALHOST + "echo_request";
     auto send_data = std::string("I am the PUT workload!");
     auto client = http::client();
     client.send_data = send_data;
@@ -267,7 +267,7 @@ CATCH_TEST_CASE(
     "Test a PUT request for sending a file",
     "[http][request][PUT][file][localhost]"
 ) {
-    auto url = LOCALHOST + "put_request";
+    auto url = LOCALHOST + "echo_request";
     auto send_data = std::string("I am the PUT workload!");
     auto send_filename = "put_file.txt";
 
@@ -286,8 +286,8 @@ CATCH_TEST_CASE(
     "Test a DELETE request",
     "[http][request][DELETE][localhost]"
 ) {
-    auto url = LOCALHOST + "delete_request";
-    check_result(http::client().request(url, http::HTTP_DELETE).data().get(), "DELETE received");
+    auto url = LOCALHOST + "echo_request";
+    check_result(http::client().request(url, http::HTTP_DELETE).data().get(), "DELETE received: ");
 }
 
 CATCH_TEST_CASE(
@@ -412,7 +412,7 @@ CATCH_TEST_CASE(
     "Test multiple parallel streaming requests",
     "[http][requests][stream][localhost]"
 ) {
-    auto url = LOCALHOST + "get_request";
+    auto url = LOCALHOST + "echo_request";
     perform_parallel_stream_requests(10, url);
 }
 

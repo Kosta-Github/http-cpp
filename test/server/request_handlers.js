@@ -43,59 +43,24 @@ function register_handlers(handle) {
         }, 3000); // wait 3 second before responding
     }
 
-    handle["/get_request"] = function (request, response) {
-        var status = ((request.method === "GET") ? 200 : 404);
-        response.writeHead(status, { "Content-Type": "text/plain" });
-        response.write(request.method + " received");
-        response.end();
-    }
-
-    handle["/head_request"] = function (request, response) {
-        var status = ((request.method === "HEAD") ? 200 : 404);
-        response.writeHead(status, { "Content-Type": "text/plain" });
-        response.write(request.method + " received");
-        response.end();
-    }
-
-    handle["/put_request"] = function (request, response) {
-        var status = ((request.method === "PUT") ? 200 : 404);
-        response.writeHead(status, { "Content-Type": "text/plain" });
-
-        var data = "";
-        request.setEncoding('utf8');
-        request.on('data', function (chunk) { data += chunk; });
-        request.on('end', function () {
-            response.write(request.method + " received: " + data);
-            response.end();
-        });
-    }
-
-    handle["/post_request"] = function (request, response) {
-        var status = ((request.method === "POST") ? 200 : 404);
-        response.writeHead(status, { "Content-Type": "text/plain" });
-
-        var data = "";
-        request.setEncoding('utf8');
-        request.on('data', function (chunk) { data += chunk; });
-        request.on('end', function () {
-            response.write(request.method + " received: " + data);
-            response.end();
-        });
-    }
-
-    handle["/delete_request"] = function (request, response) {
-        var status = ((request.method === "DELETE") ? 200 : 404);
-        response.writeHead(status, { "Content-Type": "text/plain" });
-        response.write(request.method + " received");
-        response.end();
-    }
-
     handle["/echo_headers"] = function (request, response) {
         var headers = request.headers;
         headers["Content-Type"] = "text/plain";
         response.writeHead(200, headers);
         response.write("headers received");
         response.end();
+    }
+
+    handle["/echo_request"] = function (request, response) {
+        response.writeHead(200, { "Content-Type": "text/plain" });
+
+        var data = "";
+        request.setEncoding('utf8');
+        request.on('data', function (chunk) { data += chunk; });
+        request.on('end', function () {
+            response.write(request.method + " received: " + data);
+            response.end();
+        });
     }
 
 }
