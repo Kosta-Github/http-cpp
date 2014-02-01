@@ -30,7 +30,6 @@ add_library(
 	form_data.hpp
 	http-cpp.hpp
 	message.hpp
-	operation.cpp
 	operation.hpp
 	progress.hpp
 	status.cpp

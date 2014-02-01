@@ -150,7 +150,7 @@ CATCH_TEST_CASE(
     "[http][request][GET][localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
-    check_result(http::client().request(url, http::HTTP_GET).data().get(), "GET received: ");
+    check_result(http::client().request(url, http::GET()).data().get(), "GET received: ");
 }
 
 CATCH_TEST_CASE(
@@ -162,7 +162,7 @@ CATCH_TEST_CASE(
 
     auto client = http::client();
     client.receive_file = receive_filename;
-    check_result(client.request(url, http::HTTP_GET).data().get(), "");
+    check_result(client.request(url, http::GET()).data().get(), "");
 
     std::ifstream receive_file(receive_filename, std::ios::binary);
     std::string line; std::getline(receive_file, line);
@@ -176,7 +176,7 @@ CATCH_TEST_CASE(
     "[http][request][HEAD][localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
-    check_result(http::client().request(url, http::HTTP_HEAD).data().get(), ""); // the body needs to be empty for a HEAD request
+    check_result(http::client().request(url, http::HEAD()).data().get(), ""); // the body needs to be empty for a HEAD request
 }
 
 CATCH_TEST_CASE(
@@ -187,7 +187,7 @@ CATCH_TEST_CASE(
     auto send_data = std::string("I am the POST workload!");
     auto client = http::client();
     client.send_data = send_data;
-    check_result(client.request(url, http::HTTP_POST).data().get(), "POST received: " + send_data);
+    check_result(client.request(url, http::POST()).data().get(), "POST received: " + send_data);
 }
 
 CATCH_TEST_CASE(
@@ -204,7 +204,7 @@ CATCH_TEST_CASE(
 
     auto client = http::client();
     client.send_file = send_filename;
-    check_result(client.request(url, http::HTTP_POST).data().get(), "POST received: " + send_data);
+    check_result(client.request(url, http::POST()).data().get(), "POST received: " + send_data);
     
     std::remove(send_filename);
 }
@@ -222,7 +222,7 @@ CATCH_TEST_CASE(
 
     auto client = http::client();
     client.post_form = post_form;
-    auto data = client.request(url, http::HTTP_POST).data().get();
+    auto data = client.request(url, http::POST()).data().get();
 
     CATCH_CAPTURE(http::error_code_to_string(data.error_code));
     CATCH_CHECK(data.error_code == http::HTTP_REQUEST_FINISHED);
@@ -260,7 +260,7 @@ CATCH_TEST_CASE(
     auto send_data = std::string("I am the PUT workload!");
     auto client = http::client();
     client.send_data = send_data;
-    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + send_data);
+    check_result(client.request(url, http::PUT()).data().get(), "PUT received: " + send_data);
 }
 
 CATCH_TEST_CASE(
@@ -277,7 +277,7 @@ CATCH_TEST_CASE(
 
     auto client = http::client();
     client.send_file = send_filename;
-    check_result(client.request(url, http::HTTP_PUT).data().get(), "PUT received: " + send_data);
+    check_result(client.request(url, http::PUT()).data().get(), "PUT received: " + send_data);
 
     std::remove(send_filename);
 }
@@ -287,7 +287,19 @@ CATCH_TEST_CASE(
     "[http][request][DELETE][localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
-    check_result(http::client().request(url, http::HTTP_DELETE).data().get(), "DELETE received: ");
+    check_result(http::client().request(url, http::DELETE()).data().get(), "DELETE received: ");
+}
+
+// hide this test since node.js seems not to be able to handle custom HTTP requests... :-(
+CATCH_TEST_CASE(
+    "Test a CUSTOM request",
+    "[hide][http][request][CUSTOM][localhost]"
+) {
+    auto url = LOCALHOST + "echo_request";
+    auto send_data = std::string("I am the CUSTOM workload!");
+    auto client = http::client();
+    client.send_data = send_data;
+    check_result(client.request(url, "CUSTOM").data().get(), "CUSTOM received: " + send_data);
 }
 
 CATCH_TEST_CASE(

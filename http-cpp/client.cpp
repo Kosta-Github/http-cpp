@@ -398,46 +398,49 @@ public:
     }
 
     void request() {
+        curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
+
+        // dispatch the HTTP operation
+        if(     m_operation == http::GET())     { request_get();        }
+        else if(m_operation == http::HEAD())    { request_head();       }
+        else if(m_operation == http::PUT())     { request_put();        }
+        else if(m_operation == http::POST())    { request_post();       }
+        else if(m_operation == http::PATCH())   { request_patch();      }
+        else if(m_operation == http::DELETE())  { request_delete();     }
+        else                                    { prepare_send_data();  }
+
         if(m_receive_file) {
             curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, nullptr);
             curl_easy_setopt(handle, CURLOPT_WRITEDATA,     m_receive_file.get());
         }
 
-        // dispatch the HTTP operation
-        switch(m_operation) {
-            case http::HTTP_GET:    request_get();      start(); break;
-            case http::HTTP_HEAD:   request_head();     start(); break;
-            case http::HTTP_PUT:    request_put();      start(); break;
-            case http::HTTP_POST:   request_post();     start(); break;
-            case http::HTTP_DELETE: request_delete();   start(); break;
-            default:                finish(CURLE_UNSUPPORTED_PROTOCOL, http::HTTP_000_UNKNOWN); break;
-        }
+        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, m_operation.c_str());
+
+        start();
     }
 
     void request_get() {
         assert(!m_send_file);
         assert(m_send_data.empty());
         assert(m_post_form.empty());
-
-        curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
     }
 
     void request_head() {
-        assert(!m_send_file);
-        assert(m_send_data.empty());
-        assert(m_post_form.empty());
+        request_get();
+        curl_easy_setopt(handle, CURLOPT_NOBODY, 1);
+    }
 
-        curl_easy_setopt(handle, CURLOPT_HTTPGET,   1);
-        curl_easy_setopt(handle, CURLOPT_NOBODY,    1);
+    void request_delete() {
+        request_get();
     }
 
     void prepare_send_data() {
         assert(m_post_form.empty());
-        assert(!m_send_data.empty() || m_send_file);
 
         if(!m_send_data.empty()) {
             assert(!m_send_file);
             curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_send_data.size()));
+            curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
         }
 
         if(m_send_file) {
@@ -447,20 +450,17 @@ public:
             curl_easy_setopt(handle, CURLOPT_READFUNCTION,      nullptr);
             curl_easy_setopt(handle, CURLOPT_READDATA,          m_send_file.get());
             curl_easy_setopt(handle, CURLOPT_INFILESIZE_LARGE,  static_cast<curl_off_t>(m_send_file_size));
+            curl_easy_setopt(handle, CURLOPT_UPLOAD,            1);
         }
     }
 
     void request_put() {
-        assert(m_post_form.empty());
         prepare_send_data();
-        curl_easy_setopt(handle, CURLOPT_UPLOAD,    1);
     }
     
     void request_post() {
         if(m_post_form.empty()) {
-            prepare_send_data();
-            curl_easy_setopt(handle, CURLOPT_UPLOAD,        1);
-            curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "POST");
+            request_put();
         } else {
             assert(m_send_data.empty());
             assert(!m_send_file);
@@ -472,14 +472,10 @@ public:
         }
     }
 
-    void request_delete() {
-        assert(!m_send_file);
-        assert(m_send_data.empty());
-        assert(m_post_form.empty());
-
-        curl_easy_setopt(handle, CURLOPT_HTTPGET,       1);
-        curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+    void request_patch() {
+        request_put();
     }
+
 };
 
 std::shared_future<http::message>& http::request::data() { return m_impl->m_message_future; }
@@ -495,6 +491,8 @@ http::request http::client::request(
     http::url       url,
     http::operation op
 ) {
+    assert(!op.empty());
+
     auto req = http::request();
 
     req.m_impl = std::make_shared<http::request::impl>(

@@ -25,6 +25,8 @@
 
 #include "http-cpp.hpp"
 
+#include <string>
+
 namespace http {
 
     // see: http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
@@ -120,6 +122,6 @@ namespace http {
 
     HTTP_API bool status_is_known(http::status s);
 
-    HTTP_API const char* status_to_string(http::status s);
+    HTTP_API std::string status_to_string(http::status s);
     
 } // namespace http

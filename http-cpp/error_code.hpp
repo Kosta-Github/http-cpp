@@ -25,6 +25,8 @@
 
 #include "http-cpp.hpp"
 
+#include <string>
+
 namespace http {
 
     // an error_code <= 0 indicates a "no error situation"
@@ -36,6 +38,6 @@ namespace http {
 
     HTTP_API bool error_code_is_known(http::error_code code);
 
-    HTTP_API const char* error_code_to_string(http::error_code code);
+    HTTP_API std::string error_code_to_string(http::error_code code);
 
 } // namespace http

@@ -25,18 +25,17 @@
 
 #include "http-cpp.hpp"
 
+#include <string>
+
 namespace http {
 
-    enum operation {
-        HTTP_GET,
-        HTTP_HEAD,
-        HTTP_POST,
-        HTTP_PUT,
-        HTTP_DELETE
-    };
+    typedef std::string operation;
 
-    HTTP_API bool operation_is_known(http::operation op);
-
-    HTTP_API const char* operation_to_string(http::operation op);
+    inline operation GET()      { return "GET";     }
+    inline operation HEAD()     { return "HEAD";    }
+    inline operation PUT()      { return "PUT";     }
+    inline operation POST()     { return "POST";    }
+    inline operation PATCH()    { return "PATCH";   }
+    inline operation DELETE()   { return "DELETE";  }
 
 } // namespace http

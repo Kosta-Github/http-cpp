@@ -117,7 +117,7 @@ bool http::status_is_known(http::status s) {
         default: return false;
     }
 }
-const char* http::status_to_string(http::status s) {
+std::string http::status_to_string(http::status s) {
     switch(s) {
 #define HTTP_STATUS_CASE(X) case X: return #X
         HTTP_STATUS_CASE(HTTP_000_UNKNOWN);

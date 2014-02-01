@@ -144,7 +144,7 @@ namespace http {
         /// manner. The running request can be canceled.
         http::request request(
             http::url       url,
-            http::operation op = http::HTTP_GET
+            http::operation op = http::GET()
         );
 
         static void wait_for_all();
