@@ -15,8 +15,9 @@ function register_handlers(handle) {
     }
     
     handle["/HTTP_200_OK"] = function (request, response) {
-        response.writeHead(200, { "Content-Type": "text/plain" });
-        response.write("URL found");
+        var msg = "URL found";
+        response.writeHead(200, { "Content-Type": "text/plain", "Content-Length": msg.length });
+        response.write(msg);
         response.end();
     }
 

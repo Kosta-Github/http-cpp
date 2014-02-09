@@ -382,6 +382,53 @@ CATCH_TEST_CASE(
     );
 }
 
+CATCH_TEST_CASE(
+    "Test progress info after a GET request",
+    "[http][request][GET][progress][localhost]"
+) {
+    auto url = LOCALHOST + "HTTP_200_OK";
+    auto msg = std::string("URL found");
+
+    auto req = http::client().request(url);
+    check_result(req.data().get(), msg);
+
+    auto progress = req.progress();
+
+    // verify download progress
+    CATCH_CHECK(progress.downloadCurrentBytes == msg.size());
+    CATCH_CHECK(progress.downloadTotalBytes == msg.size());
+    CATCH_CHECK(progress.downloadSpeed > 0);
+
+    // nothing was uploaded
+    CATCH_CHECK(progress.uploadCurrentBytes == 0);
+    CATCH_CHECK(progress.uploadTotalBytes == 0);
+    CATCH_CHECK(progress.uploadSpeed == 0);
+}
+
+CATCH_TEST_CASE(
+    "Test progress info after a PUT request",
+    "[http][request][PUT][progress][localhost]"
+) {
+    auto url = LOCALHOST + "echo_request";
+    auto send_data = std::string("I am the PUT workload!");
+    auto client = http::client();
+    client.send_data = send_data;
+    auto req = client.request(url, http::PUT());
+    check_result(req.data().get(), "PUT received: " + send_data);
+
+    auto progress = req.progress();
+
+    // verify download progress
+    CATCH_CHECK(progress.downloadCurrentBytes > 0);
+    CATCH_CHECK(progress.downloadTotalBytes >= 0);
+    CATCH_CHECK(progress.downloadSpeed > 0);
+
+    // verify upload progress
+    CATCH_CHECK(progress.uploadCurrentBytes == send_data.size());
+    CATCH_CHECK(progress.uploadTotalBytes == send_data.size());
+    CATCH_CHECK(progress.uploadSpeed > 0);
+}
+
 static void perform_parallel_stream_requests(
     const int count,
     const http::url& url,
