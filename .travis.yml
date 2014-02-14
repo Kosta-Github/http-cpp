@@ -7,8 +7,23 @@ compiler:
 #  - clang
 
 env:
+  global:
+   # The next declration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "eWcN2qlC7yua+8Iqsbut6r6pspMUuQLXzPa+6CdfK2KSDsGBZg1m6opoq0i8krURoc+0jldrmIB+oJz3ABllgzwn6+q9NGwasmAjo+6+V2CKNgW2tBB5L8bMnaFkBlPW4pToVyLV6os+er7lW67psdKwXc6kpFgDnrZxhlp+Etw="
+env:
   - BUILD_CONFIG=Debug
   - BUILD_CONFIG=Release
+
+addons:
+  coverity_scan:
+    project:
+      name: "Kosta-Github/http-cpp"
+      description: "Provide a simple and portable interface to do HTTP requests in C++."
+    notification_email: github@ks-baumann.de
+    build_command_prepend:
+    build_command:
+    branch_pattern: coverity_scan
 
 before_install:
   # update fit submodules (if required)
@@ -29,12 +44,12 @@ before_install:
   - if [ "$CXX" = "clang++" ]; then sudo apt-get install -qq clang-3.4; fi
 
 install:
+  - set
+  - export
   - echo CXX=$CXX
   - $CXX --version
   - cmake --version
   - cmake -H. -BBuild -DCMAKE_BUILD_TYPE=$BUILD_CONFIG
 
 script:
-  - cd Build
-  - make -k && ctest -V --timeout 60
-  - cd ..
+  - cd Build && make -k && ctest -V --timeout 60 && cd ..
