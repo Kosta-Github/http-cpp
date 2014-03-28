@@ -13,6 +13,6 @@ const std::string& body = reply.body;
 external dependencies
 =====================
 - [curl](http://curl.haxx.se/)
-- [cmake](http://cmake.org) (for the build system)
-- [catch](https://github.com/philsquared/Catch) (only for unit tests)
-- [node.js](http://nodejs.org/) (only for unit tests)
+- [cmake](http://cmake.org): for the build system
+- [cute](https://github.com/Kosta-Github/cute): only for unit tests
+- [node.js](http://nodejs.org/): only for unit tests

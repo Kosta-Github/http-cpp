@@ -21,22 +21,31 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#define CATCH_CONFIG_RUNNER
-#include <catch/catch.hpp>
-
 #include "start_node_server.hpp"
-
 #include <http-cpp/client.hpp>
 
-int main(int const argc, char* const argv[]) {
-    std::wcout.precision(17);
-    std::wcerr.precision(17);
+#include <cute/cute.hpp>
+#include <cute/reporters/reporter_ide.hpp>
 
+CUTE_INIT(); // initialize the cute framework
+
+int main(int argc, char* argv[]) {
     auto node = start_node_server();
 
-    auto res = Catch::Session().run(argc, argv);
+    // create the test suite execution context
+    auto context = cute::context();
+
+    // print out the status of each test during the execution of the test suite
+    context.reporters.emplace_back(cute::reporter_ide);
+
+    // run the test suite
+    auto results = context.run();
 
     http::client::cancel_all();
 
-    return res;
+    // print out the test suite result summary
+    cute::reporter_ide_summary(results);
+
+    // exit with an exit code indicating success or failure for the test suite
+    return ((results.test_cases_failed > 0) ? EXIT_FAILURE : EXIT_SUCCESS);
 }

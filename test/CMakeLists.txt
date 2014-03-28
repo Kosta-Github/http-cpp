@@ -1,11 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(http CXX)
+project(http-cpp CXX)
 message("configure: http-cpp unittests")
 
-# configure catch
-include_directories("${HTTP_CPP_3RD_PARTY_DIR}/catch/include")
-add_definitions(-DCATCH_CONFIG_PREFIX_ALL)
+# configure cute
+include_directories("${HTTP_CPP_3RD_PARTY_DIR}/cute/")
 
 find_program(
 	node
