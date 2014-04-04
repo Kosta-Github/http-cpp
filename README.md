@@ -6,8 +6,9 @@ sample
 ======
 ```
 auto client = http::client();
-auto reply = client.request("http://www.google.com").data().get();
-const std::string& body = reply.body;
+auto reply = client.request("http://www.google.com").data(); // async request
+// do some more work in the meantime
+const std::string& body = reply.get().body; // retrieve the reply body
 ```
 
 external dependencies
