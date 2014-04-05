@@ -402,7 +402,7 @@ CUTE_TEST(
 
     // verify download progress
     CUTE_ASSERT(progress.downloadCurrentBytes > 0);
-    CUTE_ASSERT(progress.downloadTotalBytes >= 0);
+    // CUTE_ASSERT(progress.downloadTotalBytes >= 0); // >= 0 is always true
     CUTE_ASSERT(progress.downloadSpeed > 0);
 
     // verify upload progress
