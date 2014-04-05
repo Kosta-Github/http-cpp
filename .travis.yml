@@ -4,7 +4,6 @@ language: cpp
 
 compiler:
   - gcc
-#  - clang
 
 env:
   global:
@@ -24,19 +23,29 @@ before_install:
   - sudo add-apt-repository -y "deb http://llvm.org/apt/raring/ llvm-toolchain-raring main"
   - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
   - sudo apt-get update -qq
+  
+  # update to g++ 4.8
+  - sudo update-alternatives --remove-all gcc
+  - sudo update-alternatives --remove-all g++
+  - sudo apt-get install gcc-4.8
+  - sudo apt-get install g++-4.8
+  - sudo apt-get install -qq g++-4.8
+  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 20
+  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 20
+  - sudo update-alternatives --config gcc
+  - sudo update-alternatives --config g++
+  - g++ --version
+
+  # update some required packages
   - sudo apt-get install -qq cmake
   - sudo apt-get install -qq libcurl3
   - sudo apt-get install -qq nodejs
-  - if [ "$CXX" = "g++"     ]; then sudo apt-get install -qq g++-4.8; fi
-  - if [ "$CXX" = "g++"     ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
-  - if [ "$CXX" = "clang++" ]; then sudo apt-get install -qq clang-3.4; fi
-
+  
 install:
   - cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG
 
 script:
   - if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then make -k && ctest -V --timeout 60 ; fi
-
 
 addons:
   coverity_scan:
