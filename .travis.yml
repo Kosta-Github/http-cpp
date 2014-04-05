@@ -11,7 +11,7 @@ env:
     - secure: "PUidMNLocRlMRcZjYa59oxKLGTmXtjB5N77k6zijoO4bDy6rKxLhVOUI94QtriOyIJdGzeqHx1aW1M0S1TR8hv2zf+U/wl3zwk7lvDvuVRvyaxUw732aEa2BmJ5i8P1Y9iIKwunARWo4EgT7DeJdleBjg88oNkekq0GQEN1yf90="
   matrix:
     - BUILD_CONFIG=Debug
-    - BUILD_CONFIG=Release
+#    - BUILD_CONFIG=Release
 
 before_install:
   # update fit submodules (if required)
@@ -46,5 +46,5 @@ addons:
       description: "https://github.com/Kosta-Github/http-cpp"
     notification_email: github@ks-baumann.de
     build_command_prepend: "cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG"
-    build_command: "make -k && ctest -V --timeout 60"
+    build_command: "make"
     branch_pattern: coverity
