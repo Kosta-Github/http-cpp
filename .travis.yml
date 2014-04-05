@@ -38,7 +38,6 @@ script:
   - if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then make -k && ctest -V --timeout 60 ; fi
 
 
-
 addons:
   coverity_scan:
     project:
