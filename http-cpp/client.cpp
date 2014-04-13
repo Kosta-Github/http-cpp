@@ -493,14 +493,18 @@ http::request http::client::request(
 ) {
     assert(!op.empty());
 
+    // open_file() can throw an exception
+    auto send_file_handle       = open_file(send_file,      "rb");
+    auto receive_file_handle    = open_file(receive_file,   "wb");
+
     auto req = http::request();
 
     req.m_impl = std::make_shared<http::request::impl>(
         *this, std::move(url), std::move(op)
     );
 
-    req.m_impl->m_send_file     = open_file(send_file,      "rb");
-    req.m_impl->m_receive_file  = open_file(receive_file,   "wb");
+    req.m_impl->m_send_file     = std::move(send_file_handle);
+    req.m_impl->m_receive_file  = std::move(receive_file_handle);
 
     if(req.m_impl->m_send_file) {
         req.m_impl->m_send_file_size = file_size(send_file);

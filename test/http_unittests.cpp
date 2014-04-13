@@ -232,6 +232,18 @@ CUTE_TEST(
 }
 
 CUTE_TEST(
+    "Test sending a non-existing file throws an exception",
+    "[http],[request],[PUT],[file],[exception],[localhost]"
+) {
+    auto url = LOCALHOST + "echo_request";
+    auto not_existing_filename = cute::temp_folder() + "not_existing.txt";
+
+    auto client = http::client();
+    client.send_file = not_existing_filename;
+    CUTE_ASSERT_THROWS(client.request(url));
+}
+
+CUTE_TEST(
     "Test a POST request for sending form data",
     "[http],[request],[POST],[localhost]"
 ) {
