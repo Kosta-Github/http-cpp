@@ -6,13 +6,16 @@ compiler:
   - gcc
 
 env:
+  global:
+    - secure: "PUidMNLocRlMRcZjYa59oxKLGTmXtjB5N77k6zijoO4bDy6rKxLhVOUI94QtriOyIJdGzeqHx1aW1M0S1TR8hv2zf+U/wl3zwk7lvDvuVRvyaxUw732aEa2BmJ5i8P1Y9iIKwunARWo4EgT7DeJdleBjg88oNkekq0GQEN1yf90="
   matrix:
     - BUILD_CONFIG=Debug
-    - BUILD_CONFIG=Release
-    # coverity scan config
-    - secure: "PUidMNLocRlMRcZjYa59oxKLGTmXtjB5N77k6zijoO4bDy6rKxLhVOUI94QtriOyIJdGzeqHx1aW1M0S1TR8hv2zf+U/wl3zwk7lvDvuVRvyaxUw732aEa2BmJ5i8P1Y9iIKwunARWo4EgT7DeJdleBjg88oNkekq0GQEN1yf90="
+#    - BUILD_CONFIG=Release
 
 before_install:
+  # update git submodules (if required)
+  - git submodule update --init --recursive
+
   # pull in some common scripts for setting up Travis CI build environment
   - git clone --depth=1 https://github.com/Kosta-Github/travis-setup.git
   - sudo travis-setup/update-environment.sh
@@ -23,7 +26,7 @@ before_install:
   - sudo apt-get install -qq nodejs
   
 install:
-  - if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG ; fi
+  - cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG
 
 script:
   - if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then make -k && ctest -V --timeout 60 ; fi
@@ -34,6 +37,6 @@ addons:
       name: "Kosta-Github/http-cpp"
       description: "https://github.com/Kosta-Github/http-cpp"
     notification_email: github@ks-baumann.de
-    build_command_prepend: "cmake -DCMAKE_BUILD_TYPE=Debug"
+    build_command_prepend: "cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG"
     build_command: "make"
     branch_pattern: coverity
