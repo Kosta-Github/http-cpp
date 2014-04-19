@@ -21,10 +21,10 @@ before_install:
   - sudo apt-get install -qq nodejs
   
 install:
-  - if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG ; fi
+  - if [ "${COVERITY_SCAN_BRANCH}" != "1" ]; then cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG ; fi
 
 script:
-  - if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then make -k && ctest -V --timeout 60 ; fi
+  - if [ "${COVERITY_SCAN_BRANCH}" != "1" ]; then make -k && ctest -V --timeout 60 ; fi
 
 addons:
   coverity_scan:
