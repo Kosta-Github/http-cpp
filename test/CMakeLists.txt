@@ -22,6 +22,12 @@ else()
 		-DNODE_EXE="${node}"
 		-DNODE_SERVER_JS="${CMAKE_CURRENT_SOURCE_DIR}/server/index.js"
 	)
+	
+	add_test(
+		NAME http_unittests
+		COMMAND http_unittests
+	)
+
 endif()
 
 add_executable(
@@ -41,7 +47,6 @@ target_link_libraries(
 	http-cpp
 )
 
-add_test(
-	NAME http_unittests
-	COMMAND http_unittests
-)
+
+
+
