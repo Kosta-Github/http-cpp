@@ -1,35 +1,37 @@
-# This is the config file for building http-cpp and running its test suite with Travis-ci.org
-
 language: cpp
 
 compiler:
   - gcc
-#  - clang
 
 env:
-  - BUILD_CONFIG=Debug
-  - BUILD_CONFIG=Release
+  global:
+    # coverity scan environment
+    - secure: "PUidMNLocRlMRcZjYa59oxKLGTmXtjB5N77k6zijoO4bDy6rKxLhVOUI94QtriOyIJdGzeqHx1aW1M0S1TR8hv2zf+U/wl3zwk7lvDvuVRvyaxUw732aEa2BmJ5i8P1Y9iIKwunARWo4EgT7DeJdleBjg88oNkekq0GQEN1yf90="
+  matrix:
+    - BUILD_CONFIG=Debug
 
 before_install:
-  # update fit submodules (if required)
-  - git submodule update --init --recursive
+  # pull in some common scripts for setting up Travis CI build environment
+  - git clone --depth=1 https://github.com/Kosta-Github/travis-setup.git
+  - sudo travis-setup/update-environment.sh
+  - sudo travis-setup/update-gcc-latest.sh
 
-  # update the apt repository
-  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-  - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ saucy main universe"
-  - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ raring main universe"
-  - sudo add-apt-repository -y "deb http://llvm.org/apt/raring/ llvm-toolchain-raring main"
-  - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq cmake
+  # update some required packages
   - sudo apt-get install -qq libcurl3
   - sudo apt-get install -qq nodejs
-  - if [ "$CXX" = "g++"     ]; then sudo apt-get install -qq g++-4.8; fi
-  - if [ "$CXX" = "g++"     ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
-  - if [ "$CXX" = "clang++" ]; then sudo apt-get install -qq clang-3.4; fi
-
+  
 install:
-  - cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG
+  - if [ "${COVERITY_SCAN_BRANCH}" != "1" ]; then cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG ; fi
 
 script:
-  - make -k && ctest -V --timeout 60
+  - if [ "${COVERITY_SCAN_BRANCH}" != "1" ]; then make -k && ctest -V --timeout 60 ; fi
+
+addons:
+  coverity_scan:
+    project:
+      name: "Kosta-Github/http-cpp"
+      description: "https://github.com/Kosta-Github/http-cpp"
+    notification_email: github@ks-baumann.de
+    build_command_prepend: "cmake -DCMAKE_BUILD_TYPE=$BUILD_CONFIG"
+    build_command: "make"
+    branch_pattern: coverity

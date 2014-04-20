@@ -99,6 +99,38 @@ CUTE_TEST(
 }
 
 CUTE_TEST(
+    "Test that the progress callback gets called during data transfer",
+    "[http],[request],[progress],[localhost]"
+) {
+    std::atomic<size_t> progress_cb_called(0);
+
+    auto url = LOCALHOST + "echo_request";
+    auto client = http::client();
+    client.on_progress = [&](http::progress) { ++progress_cb_called; return true; };
+    auto request = client.request(url);
+    auto data = request.data().get();
+
+    CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_FINISHED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(progress_cb_called > 0);
+}
+
+CUTE_TEST(
+    "Test canceling a running request from within a progress callback",
+    "[http],[request],[cancel],[progress],[localhost]"
+) {
+    std::atomic<bool> progress_cb_called(false);
+
+    auto url = LOCALHOST + "delay";
+    auto client = http::client();
+    client.on_progress = [&](http::progress) { progress_cb_called = true; return false; };
+    auto request = client.request(url);
+    auto data = request.data().get();
+
+    CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_CANCELED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(progress_cb_called);
+}
+
+CUTE_TEST(
     "Test request timeout",
     "[http],[request],[timeout],[localhost]"
 ) {
@@ -197,6 +229,18 @@ CUTE_TEST(
     auto client = http::client();
     client.send_file = send_filename;
     check_result(client.request(url, http::POST()).data().get(), "POST received: " + send_data);
+}
+
+CUTE_TEST(
+    "Test sending a non-existing file throws an exception",
+    "[http],[request],[PUT],[file],[exception],[localhost]"
+) {
+    auto url = LOCALHOST + "echo_request";
+    auto not_existing_filename = cute::temp_folder() + "not_existing.txt";
+
+    auto client = http::client();
+    client.send_file = not_existing_filename;
+    CUTE_ASSERT_THROWS(client.request(url));
 }
 
 CUTE_TEST(
@@ -402,7 +446,7 @@ CUTE_TEST(
 
     // verify download progress
     CUTE_ASSERT(progress.downloadCurrentBytes > 0);
-    CUTE_ASSERT(progress.downloadTotalBytes >= 0);
+    // CUTE_ASSERT(progress.downloadTotalBytes >= 0); // is always true
     CUTE_ASSERT(progress.downloadSpeed > 0);
 
     // verify upload progress
