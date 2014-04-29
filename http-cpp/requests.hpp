@@ -43,7 +43,7 @@ namespace http {
         http::request request(
             http::client&   client,
             http::url       url,
-            http::operation op = http::GET()
+            http::operation op = http::OP_GET()
         );
 
         /// Adds the given 'req' object to the list of tracked requests.

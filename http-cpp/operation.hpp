@@ -31,11 +31,11 @@ namespace http {
 
     typedef std::string operation;
 
-    inline operation GET()      { return "GET";     }
-    inline operation HEAD()     { return "HEAD";    }
-    inline operation PUT()      { return "PUT";     }
-    inline operation POST()     { return "POST";    }
-    inline operation PATCH()    { return "PATCH";   }
-    inline operation DELETE()   { return "DELETE";  }
+    inline operation OP_GET()      { return "GET";     }
+    inline operation OP_HEAD()     { return "HEAD";    }
+    inline operation OP_PUT()      { return "PUT";     }
+    inline operation OP_POST()     { return "POST";    }
+    inline operation OP_PATCH()    { return "PATCH";   }
+    inline operation OP_DELETE()   { return "DELETE";  }
 
 } // namespace http
