@@ -176,7 +176,7 @@ CUTE_TEST(
     "[http],[request],[GET],[localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
-    check_result(http::client().request(url, http::GET()).data().get(), "GET received: ");
+    check_result(http::client().request(url, http::OP_GET()).data().get(), "GET received: ");
 }
 
 CUTE_TEST(
@@ -188,7 +188,7 @@ CUTE_TEST(
 
     auto client = http::client();
     client.receive_file = receive_filename;
-    check_result(client.request(url, http::GET()).data().get(), "");
+    check_result(client.request(url, http::OP_GET()).data().get(), "");
 
     std::ifstream receive_file(receive_filename, std::ios::binary);
     std::string line; std::getline(receive_file, line);
@@ -200,7 +200,7 @@ CUTE_TEST(
     "[http],[request],[HEAD],[localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
-    check_result(http::client().request(url, http::HEAD()).data().get(), ""); // the body needs to be empty for a HEAD request
+    check_result(http::client().request(url, http::OP_HEAD()).data().get(), ""); // the body needs to be empty for a HEAD request
 }
 
 CUTE_TEST(
@@ -211,7 +211,7 @@ CUTE_TEST(
     auto send_data = std::string("I am the POST workload!");
     auto client = http::client();
     client.send_data = send_data;
-    check_result(client.request(url, http::POST()).data().get(), "POST received: " + send_data);
+    check_result(client.request(url, http::OP_POST()).data().get(), "POST received: " + send_data);
 }
 
 CUTE_TEST(
@@ -228,7 +228,7 @@ CUTE_TEST(
 
     auto client = http::client();
     client.send_file = send_filename;
-    check_result(client.request(url, http::POST()).data().get(), "POST received: " + send_data);
+    check_result(client.request(url, http::OP_POST()).data().get(), "POST received: " + send_data);
 }
 
 CUTE_TEST(
@@ -256,7 +256,7 @@ CUTE_TEST(
 
     auto client = http::client();
     client.post_form = post_form;
-    auto data = client.request(url, http::POST()).data().get();
+    auto data = client.request(url, http::OP_POST()).data().get();
 
     CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_FINISHED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
     CUTE_ASSERT(data.status == http::HTTP_200_OK, CUTE_CAPTURE(http::status_to_string(data.status)));
@@ -286,7 +286,7 @@ CUTE_TEST(
     auto send_data = std::string("I am the PUT workload!");
     auto client = http::client();
     client.send_data = send_data;
-    check_result(client.request(url, http::PUT()).data().get(), "PUT received: " + send_data);
+    check_result(client.request(url, http::OP_PUT()).data().get(), "PUT received: " + send_data);
 }
 
 CUTE_TEST(
@@ -303,7 +303,7 @@ CUTE_TEST(
 
     auto client = http::client();
     client.send_file = send_filename;
-    check_result(client.request(url, http::PUT()).data().get(), "PUT received: " + send_data);
+    check_result(client.request(url, http::OP_PUT()).data().get(), "PUT received: " + send_data);
 }
 
 CUTE_TEST(
@@ -311,7 +311,7 @@ CUTE_TEST(
     "[http],[request],[DELETE],[localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
-    check_result(http::client().request(url, http::DELETE()).data().get(), "DELETE received: ");
+    check_result(http::client().request(url, http::OP_DELETE()).data().get(), "DELETE received: ");
 }
 
 // hide this test since node.js seems not to be able to handle custom HTTP requests... :-(
@@ -439,7 +439,7 @@ CUTE_TEST(
     auto send_data = std::string("I am the PUT workload!");
     auto client = http::client();
     client.send_data = send_data;
-    auto req = client.request(url, http::PUT());
+    auto req = client.request(url, http::OP_PUT());
     check_result(req.data().get(), "PUT received: " + send_data);
 
     auto progress = req.progress();

@@ -63,7 +63,9 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_HTTP_CONTENT_DECODING, 1);
                 curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION,        1);
                 curl_easy_setopt(handle, CURLOPT_MAXREDIRS,             5); // max 5 redirects
+#if (LIBCURL_VERSION_NUM >= 0x071900)
                 curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE,         1);
+#endif // (LIBCURL_VERSION_NUM >= 0x071900)
                 curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,           error_buffer);
             }
 

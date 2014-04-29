@@ -401,13 +401,13 @@ public:
         curl_easy_setopt(handle, CURLOPT_HTTPGET, 1);
 
         // dispatch the HTTP operation
-        if(     m_operation == http::GET())     { request_get();        }
-        else if(m_operation == http::HEAD())    { request_head();       }
-        else if(m_operation == http::PUT())     { request_put();        }
-        else if(m_operation == http::POST())    { request_post();       }
-        else if(m_operation == http::PATCH())   { request_patch();      }
-        else if(m_operation == http::DELETE())  { request_delete();     }
-        else                                    { prepare_send_data();  }
+        if(     m_operation == http::OP_GET())      { request_get();        }
+        else if(m_operation == http::OP_HEAD())     { request_head();       }
+        else if(m_operation == http::OP_PUT())      { request_put();        }
+        else if(m_operation == http::OP_POST())     { request_post();       }
+        else if(m_operation == http::OP_PATCH())    { request_patch();      }
+        else if(m_operation == http::OP_DELETE())   { request_delete();     }
+        else                                        { prepare_send_data();  }
 
         if(m_receive_file) {
             curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, nullptr);
