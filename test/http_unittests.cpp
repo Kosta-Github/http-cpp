@@ -62,12 +62,7 @@ CUTE_TEST(
     "[http],[request],[404],[localhost]"
 ) {
     auto url = LOCALHOST + "HTTP_404_NOT_FOUND";
-    check_result(
-        http::client().request(url).data().get(),
-        "URL not found",
-        http::HTTP_ERROR_OK,
-        http::HTTP_404_NOT_FOUND
-    );
+    check_result(http::client().request(url).data().get(), "URL not found", http::HTTP_ERROR_OK, http::HTTP_404_NOT_FOUND);
 }
 
 CUTE_TEST(
@@ -232,15 +227,15 @@ CUTE_TEST(
 }
 
 CUTE_TEST(
-    "Test sending a non-existing file throws an exception",
-    "[http],[request],[PUT],[file],[exception],[localhost]"
+    "Test sending a non-existing file is signaled with an error",
+    "[http],[request],[POST],[file],[localhost]"
 ) {
     auto url = LOCALHOST + "echo_request";
     auto not_existing_filename = cute::temp_folder() + "not_existing.txt";
 
     auto client = http::client();
     client.send_file = not_existing_filename;
-    CUTE_ASSERT_THROWS(client.request(url));
+    check_result(client.request(url, http::OP_POST()).data().get(), "", http::HTTP_ERROR_COULDNT_OPEN_SEND_FILE, http::HTTP_000_UNKNOWN);
 }
 
 CUTE_TEST(

@@ -45,18 +45,12 @@ namespace {
         std::string const& filename,
         const char* const flags
     ) {
-        assert(flags);
-
-        if(filename.empty()) { return nullptr; }
+        assert(!filename.empty());
 
         std::shared_ptr<FILE> file(
             std::fopen(filename.c_str(), flags),
             [](FILE* f) { if(f) { std::fclose(f); } }
         );
-
-        if(!file) {
-            throw std::runtime_error("could not open file: " + filename);
-        }
 
         return file;
     }
@@ -364,9 +358,16 @@ public:
             error = http::HTTP_ERROR_REQUEST_CANCELED;
         }
 
-        m_message_accum.error_code      = error;
+        finish(error, static_cast<http::status>(status));
+
+        // remove it from the active requests list again
+        global().remove(shared_from_this());
+    }
+
+    virtual void finish(error_code code, http::status status) {
+        m_message_accum.error_code      = code;
         m_message_accum.error_string    = error_buffer;
-        m_message_accum.status          = static_cast<http::status>(status);
+        m_message_accum.status          = status;
 
         // call the receive callback a last time with the final
         // error code
@@ -387,12 +388,10 @@ public:
             m_on_finish();
         }
 
-        // mark this request as finished and remove it from the
-        // active requests list again
+        // mark this request as finished
         finished_promise.set_value();
-        global().remove(shared_from_this());
     }
-
+    
     virtual void cancel() override {
         m_cancel = true;
     }
@@ -493,21 +492,29 @@ http::request http::client::request(
 ) {
     assert(!op.empty());
 
-    // open_file() can throw an exception
-    auto send_file_handle       = open_file(send_file,      "rb");
-    auto receive_file_handle    = open_file(receive_file,   "wb");
-
     auto req = http::request();
 
     req.m_impl = std::make_shared<http::request::impl>(
         *this, std::move(url), std::move(op)
     );
 
-    req.m_impl->m_send_file     = std::move(send_file_handle);
-    req.m_impl->m_receive_file  = std::move(receive_file_handle);
-
-    if(req.m_impl->m_send_file) {
+    // try to open send file
+    if(!send_file.empty()) {
+        req.m_impl->m_send_file = open_file(send_file, "rb");
+        if(!req.m_impl->m_send_file) {
+            req.m_impl->finish(HTTP_ERROR_COULDNT_OPEN_SEND_FILE, HTTP_000_UNKNOWN);
+            return req;
+        }
         req.m_impl->m_send_file_size = file_size(send_file);
+    }
+
+    // try to open send file
+    if(!receive_file.empty()) {
+        req.m_impl->m_receive_file = open_file(receive_file, "wb");
+        if(!req.m_impl->m_receive_file) {
+            req.m_impl->finish(HTTP_ERROR_COULDNT_OPEN_RECEIVE_FILE, HTTP_000_UNKNOWN);
+            return req;
+        }
     }
 
     req.m_impl->request();
