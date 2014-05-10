@@ -23,7 +23,7 @@
 
 #include "status.hpp"
 
-bool http::status_is_known(http::status s) {
+bool http::is_valid(http::status s) {
     switch(s) {
 #define HTTP_STATUS_CASE(X) case X: return true
         HTTP_STATUS_CASE(HTTP_000_UNKNOWN);
@@ -117,7 +117,7 @@ bool http::status_is_known(http::status s) {
         default: return false;
     }
 }
-std::string http::status_to_string(http::status s) {
+std::string http::to_string(http::status s) {
     switch(s) {
 #define HTTP_STATUS_CASE(X) case X: return #X
         HTTP_STATUS_CASE(HTTP_000_UNKNOWN);

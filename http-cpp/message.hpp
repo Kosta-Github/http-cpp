@@ -37,7 +37,7 @@ namespace http {
 
     struct message {
         message(
-            http::error_code ec = http::HTTP_REQUEST_PROGRESS,
+            http::error_code ec = http::HTTP_ERROR_REPORT_PROGRESS,
             std::string      es = std::string(),
             http::status     s  = http::HTTP_000_UNKNOWN,
             http::headers    h  = http::headers(),

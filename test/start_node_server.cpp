@@ -66,7 +66,7 @@ std::shared_ptr<std::thread> start_node_server() {
     // send the start request to the server and wait for an answer
     while(true) {
         auto&& data = http::client().request(node_start_request).data().get();
-        if(data.error_code == http::HTTP_REQUEST_FINISHED) {
+        if(data.error_code == http::HTTP_ERROR_OK) {
             if(data.status == http::HTTP_200_OK) {
                 break;
             }

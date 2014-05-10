@@ -37,12 +37,12 @@ static bool contains(std::string const& str, std::string const& find) {
 static inline void check_result(
     http::message const& data,
     std::string const& expected_body,
-    http::error_code const expected_error_code = http::HTTP_REQUEST_FINISHED,
+    http::error_code const expected_error_code = http::HTTP_ERROR_OK,
     http::status const expected_status = http::HTTP_200_OK
 ) {
-    CUTE_ASSERT(data.error_code == expected_error_code, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code == expected_error_code, CUTE_CAPTURE(http::to_string(data.error_code)));
 
-    CUTE_ASSERT(data.status == expected_status, CUTE_CAPTURE(http::status_to_string(data.status)));
+    CUTE_ASSERT(data.status == expected_status, CUTE_CAPTURE(http::to_string(data.status)));
 
     CUTE_ASSERT(data.body == expected_body);
 }
@@ -65,7 +65,7 @@ CUTE_TEST(
     check_result(
         http::client().request(url).data().get(),
         "URL not found",
-        http::HTTP_REQUEST_FINISHED,
+        http::HTTP_ERROR_OK,
         http::HTTP_404_NOT_FOUND
     );
 }
@@ -94,7 +94,7 @@ CUTE_TEST(
     auto end_time = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
 
-    CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_CANCELED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code == http::HTTP_ERROR_REQUEST_CANCELED, CUTE_CAPTURE(http::to_string(data.error_code)));
     CUTE_ASSERT(duration < 3); // should be clearly below the 3 seconds the web server will delay to answer the request
 }
 
@@ -110,7 +110,7 @@ CUTE_TEST(
     auto request = client.request(url);
     auto data = request.data().get();
 
-    CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_FINISHED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code == http::HTTP_ERROR_OK, CUTE_CAPTURE(http::to_string(data.error_code)));
     CUTE_ASSERT(progress_cb_called > 0);
 }
 
@@ -126,7 +126,7 @@ CUTE_TEST(
     auto request = client.request(url);
     auto data = request.data().get();
 
-    CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_CANCELED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code == http::HTTP_ERROR_REQUEST_CANCELED, CUTE_CAPTURE(http::to_string(data.error_code)));
     CUTE_ASSERT(progress_cb_called);
 }
 
@@ -144,7 +144,7 @@ CUTE_TEST(
     auto end_time = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
 
-    CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::to_string(data.error_code)));
     CUTE_ASSERT(data.error_string != "");
     CUTE_ASSERT(duration < 3); // should be clearly below the 3 second the web server will delay to answer the request
 }
@@ -156,7 +156,7 @@ CUTE_TEST(
     auto url = "http://localhost:1/";
     auto data = http::client().request(url).data().get();
 
-    CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::to_string(data.error_code)));
     CUTE_ASSERT(data.error_string != "");
 }
 
@@ -167,7 +167,7 @@ CUTE_TEST(
     auto url = "http://abc.xyz/";
     auto data = http::client().request(url).data().get();
 
-    CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
+    CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::to_string(data.error_code)));
     CUTE_ASSERT(data.error_string != "");
 }
 
@@ -258,8 +258,8 @@ CUTE_TEST(
     client.post_form = post_form;
     auto data = client.request(url, http::OP_POST()).data().get();
 
-    CUTE_ASSERT(data.error_code == http::HTTP_REQUEST_FINISHED, CUTE_CAPTURE(http::error_code_to_string(data.error_code)));
-    CUTE_ASSERT(data.status == http::HTTP_200_OK, CUTE_CAPTURE(http::status_to_string(data.status)));
+    CUTE_ASSERT(data.error_code == http::HTTP_ERROR_OK, CUTE_CAPTURE(http::to_string(data.error_code)));
+    CUTE_ASSERT(data.status == http::HTTP_200_OK, CUTE_CAPTURE(http::to_string(data.status)));
     CUTE_ASSERT(contains(data.body, "POST received: "), CUTE_CAPTURE(data.body));
 
     for(auto&& i : post_form) {
@@ -371,7 +371,7 @@ static void perform_parallel_requests(
     const size_t count,
     const http::url url,
     const std::string& expected_message,
-    const http::error_code expected_error_code = http::HTTP_REQUEST_FINISHED,
+    const http::error_code expected_error_code = http::HTTP_ERROR_OK,
     const http::status expected_status = http::HTTP_200_OK
 ) {
     auto client = http::client();
@@ -403,7 +403,7 @@ CUTE_TEST(
     auto url = LOCALHOST + "HTTP_404_NOT_FOUND";
     perform_parallel_requests(
         10, url, "URL not found",
-        http::HTTP_REQUEST_FINISHED,
+        http::HTTP_ERROR_OK,
         http::HTTP_404_NOT_FOUND
     );
 }
@@ -467,16 +467,16 @@ static void perform_parallel_stream_requests(
     for(int i = 0; i < count; ++i) {
         client.on_receive = [&](http::message msg, http::progress progress) -> bool {
             switch(msg.error_code) {
-                case http::HTTP_REQUEST_PROGRESS: {
+                case http::HTTP_ERROR_REPORT_PROGRESS: {
                     break;
                 }
-                case http::HTTP_REQUEST_FINISHED: {
+                case http::HTTP_ERROR_OK: {
                     CUTE_ASSERT(msg.status == expected_status);
                     --active_count;
                     break;
                 }
                 default: {
-                    CUTE_ASSERT(msg.error_code == http::HTTP_REQUEST_PROGRESS, CUTE_CAPTURE(http::error_code_to_string(msg.error_code)));
+                    CUTE_ASSERT(msg.error_code == http::HTTP_ERROR_REPORT_PROGRESS, CUTE_CAPTURE(http::to_string(msg.error_code)));
                     break;
                 }
             }

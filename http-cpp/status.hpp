@@ -120,8 +120,10 @@ namespace http {
         HTTP_599_NETWORK_CONNECT_TIMEOUT_ERROR          = 599
     };
 
-    HTTP_API bool status_is_known(http::status s);
+    /// checks if the given `status` is known/valid
+    HTTP_API bool is_valid(http::status s);
 
-    HTTP_API std::string status_to_string(http::status s);
+    /// returns an error string for the given `status`
+    HTTP_API std::string to_string(http::status s);
     
 } // namespace http
