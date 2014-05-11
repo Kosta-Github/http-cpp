@@ -1,4 +1,4 @@
-http-cpp [![Build Status](https://travis-ci.org/Kosta-Github/http-cpp.png)](https://travis-ci.org/Kosta-Github/http-cpp)
+http-cpp [![Build Status](https://travis-ci.org/Kosta-Github/http-cpp.png)](https://travis-ci.org/Kosta-Github/http-cpp) [![Coverity Scan](https://scan.coverity.com/projects/1344/badge.svg)](https://scan.coverity.com/projects/1344)
 ========
 Provide a very simple, thread-safe, and portable interface to do async HTTP requests in C++11.
 
