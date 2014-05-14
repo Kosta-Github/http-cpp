@@ -30,6 +30,13 @@
 #include <atomic>
 #include <fstream>
 
+
+
+
+#include <iostream>
+
+
+
 static bool contains(std::string const& str, std::string const& find) {
     return (str.find(find) != str.npos);
 }
@@ -520,17 +527,71 @@ CUTE_TEST(
 }
 
 CUTE_TEST(
-    "Test http::escape() works properly",
-    "[http],[escape]"
+    "Test http::encode_path() method work properly",
+    "[http],[encode_path]"
 ) {
-    CUTE_ASSERT(http::escape("hello world") == "hello%20world");
-    CUTE_ASSERT(http::escape("<>&?%/\\:=*") == "%3C%3E%26%3F%25%2F%5C%3A%3D%2A");
+    std::map<std::string, std::string> tests;
+    tests[" "] = "%20";
+    tests["!"] = "%21";
+    tests["#"] = "%23";
+    tests["$"] = "%24";
+    tests["&"] = "&";
+    tests["'"] = "%27";
+    tests["("] = "%28";
+    tests[")"] = "%29";
+    tests["*"] = "%2A";
+    tests["+"] = "+";
+    tests[","] = "%2C";
+    tests["/"] = "/";
+    tests[":"] = "%3A";
+    tests[";"] = "%3B";
+    tests["="] = "=";
+    tests["?"] = "%3F";
+    tests["@"] = "%40";
+    tests["["] = "%5B";
+    tests["]"] = "%5D";
+    tests["hello world"] = "hello%20world";
+    tests["hello world/hello universe"] = "hello%20world/hello%20universe";
+
+    for(auto&& t : tests) {
+        auto&& orig    = t.first;
+        auto&& encoded = t.second;
+        CUTE_ASSERT(http::encode_path(orig) == encoded, CUTE_CAPTURE(orig));
+        CUTE_ASSERT(http::decode(encoded) == orig, CUTE_CAPTURE(encoded));
+    }
 }
 
 CUTE_TEST(
-    "Test http::unescape() works properly",
-    "[http],[unescape]"
+    "Test http::encode_key() method work properly",
+    "[http],[encode_key]"
 ) {
-    CUTE_ASSERT(http::unescape("hello%20world") == "hello world");
-    CUTE_ASSERT(http::unescape("%3C%3E%26%3F%25%2F%5C%3A%3D%2A") == "<>&?%/\\:=*");
+    std::map<std::string, std::string> tests;
+    tests[" "] = "%20";
+    tests["!"] = "%21";
+    tests["#"] = "%23";
+    tests["$"] = "%24";
+    tests["&"] = "%26";
+    tests["'"] = "%27";
+    tests["("] = "%28";
+    tests[")"] = "%29";
+    tests["*"] = "%2A";
+    tests["+"] = "%2B";
+    tests[","] = "%2C";
+    tests["/"] = "%2F";
+    tests[":"] = "%3A";
+    tests[";"] = "%3B";
+    tests["="] = "%3D";
+    tests["?"] = "%3F";
+    tests["@"] = "%40";
+    tests["["] = "%5B";
+    tests["]"] = "%5D";
+    tests["hello world"] = "hello%20world";
+    tests["hello world/hello universe"] = "hello%20world/hello%20universe";
+
+    for(auto&& t : tests) {
+        auto&& orig    = t.first;
+        auto&& encoded = t.second;
+        CUTE_ASSERT(http::encode_key(orig) == encoded, CUTE_CAPTURE(orig));
+        CUTE_ASSERT(http::decode(encoded) == orig, CUTE_CAPTURE(encoded));
+    }
 }

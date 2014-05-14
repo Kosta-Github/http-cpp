@@ -37,6 +37,7 @@
 namespace http {
 
     struct HTTP_API client {
+        virtual ~client() { }
 
         /// Constructs a new client object and initializes it with
         /// appropriate default values.
@@ -142,7 +143,7 @@ namespace http {
         /// actual progress and upload/download speed while
         /// the request is still running in a non-blocking
         /// manner. The running request can be canceled.
-        http::request request(
+        virtual http::request request(
             http::url       url,
             http::operation op = http::OP_GET()
         );
