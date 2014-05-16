@@ -552,6 +552,8 @@ CUTE_TEST(
     tests["]"] = "%5D";
     tests["hello world"] = "hello%20world";
     tests["hello world/hello universe"] = "hello%20world/hello%20universe";
+    tests["http://hello world/hello universe"] = "http://hello%20world/hello%20universe";
+    tests["https://hello world/hello universe"] = "https://hello%20world/hello%20universe";
 
     for(auto&& t : tests) {
         auto&& orig    = t.first;
@@ -585,13 +587,44 @@ CUTE_TEST(
     tests["@"] = "%40";
     tests["["] = "%5B";
     tests["]"] = "%5D";
-    tests["hello world"] = "hello%20world";
-    tests["hello world/hello universe"] = "hello%20world/hello%20universe";
 
     for(auto&& t : tests) {
         auto&& orig    = t.first;
         auto&& encoded = t.second;
         CUTE_ASSERT(http::encode_key(orig) == encoded, CUTE_CAPTURE(orig));
+        CUTE_ASSERT(http::decode(encoded) == orig, CUTE_CAPTURE(encoded));
+    }
+}
+
+CUTE_TEST(
+    "Test http::encode_value() method work properly",
+    "[http],[encode_value]"
+) {
+    std::map<std::string, std::string> tests;
+    tests[" "] = "%20";
+    tests["!"] = "%21";
+    tests["#"] = "%23";
+    tests["$"] = "%24";
+    tests["&"] = "%26";
+    tests["'"] = "%27";
+    tests["("] = "%28";
+    tests[")"] = "%29";
+    tests["*"] = "%2A";
+    tests["+"] = "%2B";
+    tests[","] = "%2C";
+    tests["/"] = "%2F";
+    tests[":"] = "%3A";
+    tests[";"] = "%3B";
+    tests["="] = "=";
+    tests["?"] = "%3F";
+    tests["@"] = "%40";
+    tests["["] = "%5B";
+    tests["]"] = "%5D";
+
+    for(auto&& t : tests) {
+        auto&& orig    = t.first;
+        auto&& encoded = t.second;
+        CUTE_ASSERT(http::encode_value(orig) == encoded, CUTE_CAPTURE(orig));
         CUTE_ASSERT(http::decode(encoded) == orig, CUTE_CAPTURE(encoded));
     }
 }

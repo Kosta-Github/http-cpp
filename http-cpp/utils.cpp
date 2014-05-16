@@ -110,7 +110,12 @@ static std::string encode(
     return escaped;
 }
 
+static const std::string HTTP_PREFIX  = "http://";
+static const std::string HTTPS_PREFIX = "https://";
+
 std::string http::encode_path(std::string const& path) {
+    if(path.compare(0, HTTP_PREFIX.size(),  HTTP_PREFIX)  == 0) { return (HTTP_PREFIX  + encode(path.substr(HTTP_PREFIX.size()),  encode_path_part)); }
+    if(path.compare(0, HTTPS_PREFIX.size(), HTTPS_PREFIX) == 0) { return (HTTPS_PREFIX + encode(path.substr(HTTPS_PREFIX.size()), encode_path_part)); }
     return encode(path, encode_path_part);
 }
 

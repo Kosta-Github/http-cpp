@@ -34,6 +34,7 @@ namespace http {
 
     typedef std::string buffer;
     typedef std::map<std::string, std::string> headers;
+    typedef std::map<std::string, std::string> parameters;
 
     struct message {
         message(

@@ -42,38 +42,107 @@ http::oauth1::key_secret::key_secret(std::string key_, std::string secret_) : ke
 http::oauth1::client::client(oauth1::consumer consumer_, oauth1::token token_) : consumer(std::move(consumer_)), token(std::move(token_)) { }
 
 static void add_oauth_headers(
-    http::headers& headers,
+    http::parameters& params,
     http::oauth1::consumer const& consumer,
     http::oauth1::token const& token,
     std::string signature,
     std::string nonce,
     std::string time_stamp
 ) {
-    headers[OAUTH_VERSION] = "1.0";
+    params[OAUTH_VERSION] = "1.0";
 
-    headers[OAUTH_CONSUMER_KEY] = consumer.key;
+    params[OAUTH_CONSUMER_KEY] = consumer.key;
 
-    if(!token.key.empty()) {
-        headers[OAUTH_TOKEN] = token.key;
+    if(token.key.empty()) {
+        params.erase(OAUTH_TOKEN);
+    } else {
+        params[OAUTH_TOKEN] = token.key;
     }
 
-    if(!signature.empty()) {
-        headers[OAUTH_SIGNATURE] = std::move(signature);
+    if(signature.empty()) {
+        params.erase(OAUTH_SIGNATURE);
+    } else {
+        params[OAUTH_SIGNATURE] = std::move(signature);
     }
-    headers[OAUTH_SIGNATURE_METHOD] = "HMAC_SHA1";
+    params[OAUTH_SIGNATURE_METHOD] = "HMAC_SHA1";
 
-    headers[OAUTH_NONCE] = std::move(nonce);
-    headers[OAUTH_TIMESTAMP] = std::move(time_stamp);
+    params[OAUTH_NONCE] = std::move(nonce);
+    params[OAUTH_TIMESTAMP] = std::move(time_stamp);
 
 }
 
+static void split_params(
+    http::parameters& inout_params,
+    std::string const& str
+) {
+    if(str.empty()) { return; }
 
+    auto last_amp = std::size_t(0);
+    while(true) {
+        auto next_amp = str.find('&', last_amp + 1);
+
+        auto part = str.substr(last_amp, next_amp - last_amp);
+        auto pos = part.find('=');
+        if(pos > 0) {
+            auto key =   (pos == part.npos) ? part : part.substr(0, pos);
+            auto value = (pos == part.npos) ? ""   : part.substr(pos + 1);
+            inout_params[std::move(key)] = std::move(value);
+        }
+    }
+}
+
+static std::string params_to_string(
+    http::parameters const& params
+) {
+    std::string result;
+    for(auto&& i : params) {
+        if(!result.empty()) { result += '&'; }
+        result += http::encode_key(i.first);
+        result += '=';
+        result += http::encode_value(i.second);
+    }
+    return result;
+}
+
+static std::string calc_oauth_signature(
+    http::operation const& op,
+    std::string const& url_path,
+    http::parameters const& params
+) {
+    auto sig_base = std::string();
+    sig_base += http::encode_all(op);
+    sig_base += '&';
+    sig_base += http::encode_all(http::decode(url_path));
+    sig_base += '&';
+    sig_base += http::encode_all(params_to_string(params));
+
+    return sig_base;
+}
 
 http::request http::oauth1::client::request(
     http::url       url,
     http::operation op
 ) {
-    add_oauth_headers(headers, consumer, token, "signature", "nonce", "time_stamp");
+    // split URL into path and parameter parts at "?"
+    auto pos = url.find('?');
+    auto url_path   = (pos == url.npos) ? url : url.substr(0, pos);
+    auto url_params = (pos == url.npos) ? ""  : url.substr(pos + 1);
 
-    return http::client::request(std::move(url), std::move(op));
+    // extract the parameters
+    auto params = http::parameters();
+    split_params(params, url_params);
+
+    // prepare the OAuth1 parameters, calculate the signature, and add it to the parameters
+    auto nonce = "nonce";
+    auto time_stamp = "time_stamp";
+
+    add_oauth_headers(params, consumer, token, "", nonce, time_stamp);
+    auto signature = calc_oauth_signature(op, url_path, params);
+    add_oauth_headers(params, consumer, token, signature, nonce, time_stamp);
+
+    // create the final query URL
+    auto final_params = params_to_string(params);
+    auto final_url = url_path + '?' + final_params;
+
+    return http::client::request(std::move(final_url), std::move(op));
 }
