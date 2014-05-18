@@ -628,3 +628,40 @@ CUTE_TEST(
         CUTE_ASSERT(http::decode(encoded) == orig, CUTE_CAPTURE(encoded));
     }
 }
+
+CUTE_TEST(
+    "Test http::encode_all() method work properly",
+    "[http],[encode_all]"
+) {
+    std::map<std::string, std::string> tests;
+    tests[" "] = "%20";
+    tests["!"] = "%21";
+    tests["#"] = "%23";
+    tests["$"] = "%24";
+    tests["&"] = "%26";
+    tests["'"] = "%27";
+    tests["("] = "%28";
+    tests[")"] = "%29";
+    tests["*"] = "%2A";
+    tests["+"] = "%2B";
+    tests[","] = "%2C";
+    tests["/"] = "%2F";
+    tests[":"] = "%3A";
+    tests[";"] = "%3B";
+    tests["="] = "%3D";
+    tests["?"] = "%3F";
+    tests["@"] = "%40";
+    tests["["] = "%5B";
+    tests["]"] = "%5D";
+
+    tests["Ladies + Gentlemen"] = "Ladies%20%2B%20Gentlemen";
+    tests["An encoded string!"] = "An%20encoded%20string%21";
+    tests["Dogs, Cats & Mice"] = "Dogs%2C%20Cats%20%26%20Mice";
+
+    for(auto&& t : tests) {
+        auto&& orig    = t.first;
+        auto&& encoded = t.second;
+        CUTE_ASSERT(http::encode_all(orig) == encoded, CUTE_CAPTURE(orig));
+        CUTE_ASSERT(http::decode(encoded) == orig, CUTE_CAPTURE(encoded));
+    }
+}
