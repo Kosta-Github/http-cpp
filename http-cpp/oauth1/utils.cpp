@@ -23,8 +23,8 @@
 
 #include "./utils.hpp"
 #include "../utils.hpp"
-#include "./impl/base64.h"
-#include "./impl/HMAC_SHA1.h"
+#include "../../3rdParty/base64/base64.h"
+#include "../../3rdParty/HMAC_SHA1/HMAC_SHA1.h"
 
 #include <atomic>
 #include <ctime>
