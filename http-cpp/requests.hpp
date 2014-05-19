@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "request.hpp"
+#include "./request.hpp"
 
  // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
 #if defined(_MSC_VER)

@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "message.hpp"
+#include "./message.hpp"
 
 #include <cassert>
 

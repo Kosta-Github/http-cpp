@@ -25,30 +25,31 @@
 
 #include "../client.hpp"
 
+ // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
+#if defined(_MSC_VER)
+#   pragma warning(push)
+#   pragma warning(disable: 4251)
+#endif // defined(_MSC_VER)
+
 namespace http {
     namespace oauth1 {
 
-        struct key_secret {
-            explicit key_secret(std::string key_ = "", std::string secret_ = "");
+        struct HTTP_API client : public http::client {
+            std::string consumer_key;
+            std::string consumer_secret;
 
-            const std::string key;
-            const std::string secret;
-        };
-
-        typedef key_secret consumer;
-        typedef key_secret token;
-
-        struct client : public http::client {
-            explicit client(consumer consumer_, token token_ = oauth1::token());
+            std::string token_key;
+            std::string token_secret;
 
             virtual http::request request(
                 http::url       url,
                 http::operation op = http::OP_GET()
             ) override;
-
-            const consumer consumer;
-            const token    token;
         };
 
     } // namespace oauth1
 } // namespace http
+
+#if defined(_MSC_VER)
+#   pragma warning(pop)
+#endif // defined(_MSC_VER)

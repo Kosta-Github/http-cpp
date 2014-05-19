@@ -21,7 +21,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#include "status.hpp"
+#include "./status.hpp"
 
 bool http::is_valid(http::status s) {
     switch(s) {

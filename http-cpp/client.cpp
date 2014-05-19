@@ -21,13 +21,13 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#include "client.hpp"
-#include "utils.hpp"
+#include "./client.hpp"
+#include "./utils.hpp"
 
-#include "impl/curl_easy_wrap.hpp"
-#include "impl/curl_global_init_wrap.hpp"
-#include "impl/curl_multi_wrap.hpp"
-#include "impl/curl_share_wrap.hpp"
+#include "./impl/curl_easy_wrap.hpp"
+#include "./impl/curl_global_init_wrap.hpp"
+#include "./impl/curl_multi_wrap.hpp"
+#include "./impl/curl_share_wrap.hpp"
 
 #include <cstring>
 #include <cstdio>

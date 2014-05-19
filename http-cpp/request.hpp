@@ -23,10 +23,10 @@
 
 #pragma once
 
-#include "message.hpp"
-#include "operation.hpp"
-#include "progress.hpp"
-#include "utils.hpp"
+#include "./message.hpp"
+#include "./operation.hpp"
+#include "./progress.hpp"
+#include "./utils.hpp"
 
 #include <future>
 
