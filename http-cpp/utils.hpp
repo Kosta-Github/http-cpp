@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "http-cpp.hpp"
+#include "./http-cpp.hpp"
 
 #include <chrono>
 #include <future>
@@ -32,8 +32,20 @@
 
 namespace http {
 
-    HTTP_API std::string escape(std::string s);
-    HTTP_API std::string unescape(std::string s);
+    /// Use this helper function to properly encode the "path" part of an URL.
+    HTTP_API std::string encode_path(std::string const& path);
+
+    /// Use this helper function to properly encode the "key" part of an URL parameter.
+    HTTP_API std::string encode_key(std::string const& key);
+
+    /// Use this helper function to properly encode the "value" part of an URL parameter.
+    HTTP_API std::string encode_value(std::string const& value);
+
+    /// Use this helper function to properly encode all chars in the given string.
+    HTTP_API std::string encode_all(std::string const& value);
+
+    /// Use this helper function to properly decode an encode string (path, key, or value).
+    HTTP_API std::string decode(std::string const& str);
 
     /// This helper function is just provided as here due to consistency with
     /// respect to the wait_for() and wait_until() helper functions.

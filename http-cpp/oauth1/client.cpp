@@ -21,55 +21,18 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#pragma once
-
-#include "./message.hpp"
-#include "./operation.hpp"
-#include "./progress.hpp"
+#include "./client.hpp"
 #include "./utils.hpp"
 
-#include <future>
+http::request http::oauth1::client::request(
+    http::url       url,
+    http::operation op
+) {
+    auto timestamp = create_timestamp();
+    auto nonce = create_nonce();
 
- // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
-#if defined(_MSC_VER)
-#   pragma warning(push)
-#   pragma warning(disable: 4251)
-#endif // defined(_MSC_VER)
+    auto oauth_header = http::oauth1::create_oauth_header(*this, url, op, timestamp, nonce);
+    headers.insert(oauth_header);
 
-namespace http {
-
-    typedef std::string url;
-
-    struct HTTP_API request {
-        std::shared_future<http::message>& data();
-
-        http::url url() const;
-        http::operation operation() const;
-
-        http::progress progress() const;
-
-        void cancel();
-
-        inline void wait() { http::wait(data()); }
-
-        template<typename TIME>
-        inline auto wait_for(TIME&& t) -> decltype(std::future_status::ready) {
-            return http::wait_for(data(), std::forward<TIME>(t));
-        }
-
-        template<typename TIME>
-        inline auto wait_until(TIME&& t) -> decltype(std::future_status::ready) {
-            return http::wait_until(data(), std::forward<TIME>(t));
-        }
-
-    private:
-        friend struct client;
-        struct impl;
-        std::shared_ptr<impl> m_impl;
-    };
-
-} // namespace http
-
-#if defined(_MSC_VER)
-#   pragma warning(pop)
-#endif // defined(_MSC_VER)
+    return http::client::request(std::move(url), std::move(op));
+}

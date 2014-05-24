@@ -21,8 +21,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#include "client.hpp"
-#include "requests.hpp"
+#include "./client.hpp"
+#include "./requests.hpp"
 
 http::request http::requests::request(
     http::client&   client,

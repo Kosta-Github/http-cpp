@@ -21,13 +21,13 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#include "client.hpp"
-#include "utils.hpp"
+#include "./client.hpp"
+#include "./utils.hpp"
 
-#include "impl/curl_easy_wrap.hpp"
-#include "impl/curl_global_init_wrap.hpp"
-#include "impl/curl_multi_wrap.hpp"
-#include "impl/curl_share_wrap.hpp"
+#include "./impl/curl_easy_wrap.hpp"
+#include "./impl/curl_global_init_wrap.hpp"
+#include "./impl/curl_multi_wrap.hpp"
+#include "./impl/curl_share_wrap.hpp"
 
 #include <cstring>
 #include <cstdio>
@@ -79,9 +79,6 @@ namespace {
     }
 
     struct global_data {
-        global_data() : m_dummy_handle(curl_easy_init()) { }
-        ~global_data() { curl_easy_cleanup(m_dummy_handle); }
-
         void add(std::shared_ptr<http::impl::curl_easy_wrap> wrap) {
             assert(wrap);
             m_share.add(wrap->handle);
@@ -98,7 +95,6 @@ namespace {
         http::impl::curl_global_init_wrap   m_init;
         http::impl::curl_share_wrap         m_share;
         http::impl::curl_multi_wrap         m_multi;
-        CURL* const                         m_dummy_handle; // e.g., for escape()/unescape()
     };
 
     static global_data& global() {
@@ -107,34 +103,6 @@ namespace {
     }
 
 } // namespace
-
-
-std::string http::escape(
-    std::string s
-) {
-    if(s.empty()) { return s; }
-
-    auto handle = global().m_dummy_handle;
-    auto escaped = curl_easy_escape(handle, s.c_str(), static_cast<int>(s.size()));
-    s = escaped;
-    curl_free(escaped);
-
-    return s;
-}
-
-std::string http::unescape(
-    std::string s
-) {
-    if(s.empty()) { return s; }
-
-    auto handle = global().m_dummy_handle;
-    int unescaped_len = 0;
-    auto unescaped = curl_easy_unescape(handle, s.c_str(), static_cast<int>(s.size()), &unescaped_len);
-    s.assign(unescaped, unescaped_len);
-    curl_free(unescaped);
-    
-    return s;
-}
 
 
 struct http::request::impl :

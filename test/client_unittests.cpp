@@ -25,9 +25,7 @@
 
 #include <http-cpp/client.hpp>
 #include <http-cpp/requests.hpp>
-#include <http-cpp/utils.hpp>
 
-#include <atomic>
 #include <fstream>
 
 static bool contains(std::string const& str, std::string const& find) {
@@ -517,20 +515,4 @@ CUTE_TEST(
     "[http],[client],[request],[timeout],[default]"
 ) {
     CUTE_ASSERT(http::client().request_timeout == 0);
-}
-
-CUTE_TEST(
-    "Test http::escape() works properly",
-    "[http],[escape]"
-) {
-    CUTE_ASSERT(http::escape("hello world") == "hello%20world");
-    CUTE_ASSERT(http::escape("<>&?%/\\:=*") == "%3C%3E%26%3F%25%2F%5C%3A%3D%2A");
-}
-
-CUTE_TEST(
-    "Test http::unescape() works properly",
-    "[http],[unescape]"
-) {
-    CUTE_ASSERT(http::unescape("hello%20world") == "hello world");
-    CUTE_ASSERT(http::unescape("%3C%3E%26%3F%25%2F%5C%3A%3D%2A") == "<>&?%/\\:=*");
 }

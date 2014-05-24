@@ -23,12 +23,7 @@
 
 #pragma once
 
-#include "./message.hpp"
-#include "./operation.hpp"
-#include "./progress.hpp"
-#include "./utils.hpp"
-
-#include <future>
+#include "../client.hpp"
 
  // disable warning: class 'ABC' needs to have dll-interface to be used by clients of struct 'XYZ'
 #if defined(_MSC_VER)
@@ -37,37 +32,22 @@
 #endif // defined(_MSC_VER)
 
 namespace http {
+    namespace oauth1 {
 
-    typedef std::string url;
+        struct HTTP_API client : public http::client {
+            std::string consumer_key;
+            std::string consumer_secret;
 
-    struct HTTP_API request {
-        std::shared_future<http::message>& data();
+            std::string token_key;
+            std::string token_secret;
 
-        http::url url() const;
-        http::operation operation() const;
+            virtual http::request request(
+                http::url       url,
+                http::operation op = http::OP_GET()
+            ) override;
+        };
 
-        http::progress progress() const;
-
-        void cancel();
-
-        inline void wait() { http::wait(data()); }
-
-        template<typename TIME>
-        inline auto wait_for(TIME&& t) -> decltype(std::future_status::ready) {
-            return http::wait_for(data(), std::forward<TIME>(t));
-        }
-
-        template<typename TIME>
-        inline auto wait_until(TIME&& t) -> decltype(std::future_status::ready) {
-            return http::wait_until(data(), std::forward<TIME>(t));
-        }
-
-    private:
-        friend struct client;
-        struct impl;
-        std::shared_ptr<impl> m_impl;
-    };
-
+    } // namespace oauth1
 } // namespace http
 
 #if defined(_MSC_VER)
