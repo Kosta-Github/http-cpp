@@ -161,3 +161,12 @@ CUTE_TEST(
     CUTE_ASSERT(header.first    == header_key_expected);
     CUTE_ASSERT(header.second   == header_value_expected);
 }
+
+CUTE_TEST(
+    "Test http::oauth1::create_nonce() method does not create the same value for two consecutive calls",
+    "[http],[oauth1],[create_nonce]"
+) {
+    auto nonce1 = http::oauth1::create_nonce();
+    auto nonce2 = http::oauth1::create_nonce();
+    CUTE_ASSERT(nonce1 != nonce2);
+}

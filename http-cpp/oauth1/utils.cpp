@@ -26,16 +26,16 @@
 #include "../../3rdParty/base64/base64.h"
 #include "../../3rdParty/HMAC_SHA1/HMAC_SHA1.h"
 
-#include <atomic>
 #include <ctime>
 #include <locale>
+#include <mutex>
+#include <random>
 
 // based on this description: https://dev.twitter.com/docs/auth/creating-signature
 
 static const char* const OAUTH_VERSION          = "oauth_version";
 static const char* const OAUTH_CONSUMER_KEY     = "oauth_consumer_key";
 static const char* const OAUTH_TOKEN            = "oauth_token";
-static const char* const OAUTH_TOKEN_SECRET     = "oauth_token_secret";
 static const char* const OAUTH_SIGNATURE_METHOD = "oauth_signature_method";
 static const char* const OAUTH_SIGNATURE        = "oauth_signature";
 static const char* const OAUTH_NONCE            = "oauth_nonce";
@@ -50,9 +50,25 @@ std::string http::oauth1::create_timestamp() {
 
 // needs to be improved!!!
 std::string http::oauth1::create_nonce() {
-    static std::atomic<std::size_t> s_counter(0);
-    std::srand(static_cast<unsigned int>(std::time(nullptr) + ++s_counter));
-    return std::to_string(std::rand());
+    std::string random_values(32, '\0');
+
+    {   // need to protect the static state with a mutex
+        static std::mutex s_mutex;
+        std::lock_guard<std::mutex> lock(s_mutex);
+
+        static std::mt19937 eng;
+        static std::uniform_int_distribution<char> dist;
+        static auto random_gen = [&]() { return dist(eng); };
+
+        std::generate(random_values.begin(), random_values.end(), random_gen);
+    }
+
+    auto random_base64 = base64_encode(
+        reinterpret_cast<const unsigned char*>(random_values.c_str()),
+        random_values.size()
+    );
+
+    return http::encode_all(random_base64);
 }
 
 http::parameters http::oauth1::create_oauth_parameters(
