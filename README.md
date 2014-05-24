@@ -11,6 +11,19 @@ auto reply = client.request("http://www.google.com").data(); // async request
 const std::string& body = reply.get().body; // retrieve the reply body
 ```
 
+OAuth1 sample
+=============
+```
+auto client = http::oauth1::client();
+client.consumer_key    = "...";
+client.consumer_secret = "...";
+client.token_key       = "...";
+client.token_secret    = "...";
+auto reply = client.request("https://do.an.oauth1.request.com").data(); // async request
+// do some more work in the meantime
+const std::string& body = reply.get().body; // retrieve the reply body
+```
+
 external dependencies
 =====================
 - [curl](http://curl.haxx.se/)
