@@ -26,8 +26,8 @@
 #include "../../3rdParty/base64/base64.h"
 #include "../../3rdParty/HMAC_SHA1/HMAC_SHA1.h"
 
+#include <algorithm>
 #include <ctime>
-#include <locale>
 #include <mutex>
 #include <random>
 
