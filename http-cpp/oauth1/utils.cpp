@@ -65,7 +65,7 @@ std::string http::oauth1::create_nonce() {
 
     auto random_base64 = base64_encode(
         reinterpret_cast<const unsigned char*>(random_values.c_str()),
-        random_values.size()
+        static_cast<unsigned int>(random_values.size())
     );
 
     return http::encode_all(random_base64);
