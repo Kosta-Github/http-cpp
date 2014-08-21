@@ -24,6 +24,7 @@
 #include "./utils.hpp"
 
 #include <cassert>
+#include <cctype>
 
 static const char HEX[] = "0123456789ABCDEF";
 
@@ -153,4 +154,21 @@ std::string http::decode(
     }
 
     return unescaped;
+}
+
+std::string http::to_lower(
+    std::string s
+) {
+    std::transform(s.begin(), s.end(), s.begin(), [](char c) { return std::tolower(c); });
+    return s;
+}
+
+http::headers http::to_lower(
+    http::headers const& hdrs
+) {
+    auto result = http::headers();
+    for(auto&& h : hdrs) {
+        result[to_lower(h.first)] = h.second;
+    }
+    return result;
 }

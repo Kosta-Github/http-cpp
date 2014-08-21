@@ -133,11 +133,12 @@ struct http::request::impl :
         curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT,    client.connect_timeout);
         curl_easy_setopt(handle, CURLOPT_TIMEOUT,           client.request_timeout);
 
-        if(!client.headers.count("accept-encoding")) {
+        const auto hdrs = to_lower(client.headers);
+        if(!hdrs.count("accept-encoding")) {
             curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, client.accept_compressed ? "" : nullptr);
         }
 
-        for(auto&& h : client.headers) {
+        for(auto&& h : hdrs) {
             add_header(h.first, h.second);
         }
 
@@ -312,7 +313,9 @@ public:
         auto str = std::string(data, data + bytes);
         auto pos = str.find(": ");
         if(pos != str.npos) {
-            m_message_accum.headers[str.substr(0, pos)] = str.substr(pos + 2);
+            auto key = to_lower(str.substr(0, pos)); // make all header keys lower case
+            auto value = str.substr(pos + 2);
+            m_message_accum.headers[std::move(key)] = std::move(value);
         }
     }
 

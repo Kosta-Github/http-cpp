@@ -24,6 +24,7 @@
 #pragma once
 
 #include "./http-cpp.hpp"
+#include "./message.hpp"
 
 #include <chrono>
 #include <future>
@@ -46,6 +47,12 @@ namespace http {
 
     /// Use this helper function to properly decode an encode string (path, key, or value).
     HTTP_API std::string decode(std::string const& str);
+
+    /// Use this helper function to make all characters lower case.
+    HTTP_API std::string to_lower(std::string str);
+
+    /// Use this helper function to make all header keys lower case.
+    HTTP_API http::headers to_lower(http::headers const& hdrs);
 
     /// This helper function is just provided as here due to consistency with
     /// respect to the wait_for() and wait_until() helper functions.
