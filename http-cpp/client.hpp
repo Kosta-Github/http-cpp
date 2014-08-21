@@ -86,6 +86,14 @@ namespace http {
         /// be used (default).
         size_t request_timeout;
 
+        /// Specifies that the returned result from the server might be
+        /// accepted as compressed by method libcurl understands and
+        /// libcurl will do the decompression transparently, which means
+        /// the result body will contain the already decompressed data.
+        /// The default value is true for this flag in order to gain
+        /// some network bandwidth if possible.
+        bool accept_compressed;
+
         /// If an on_finish callback is provided the callback
         /// will be called immediately after finishing the
         /// request; the provided request object can then be

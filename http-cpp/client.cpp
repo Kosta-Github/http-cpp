@@ -133,6 +133,10 @@ struct http::request::impl :
         curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT,    client.connect_timeout);
         curl_easy_setopt(handle, CURLOPT_TIMEOUT,           client.request_timeout);
 
+        if(!client.headers.count("accept-encoding")) {
+            curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, client.accept_compressed ? "" : nullptr);
+        }
+
         for(auto&& h : client.headers) {
             add_header(h.first, h.second);
         }
@@ -452,7 +456,7 @@ http::progress http::request::progress() const { return m_impl->progress(); }
 void http::request::cancel() { m_impl->cancel(); }
 
 
-http::client::client() : connect_timeout(300), request_timeout(0) { }
+http::client::client() : connect_timeout(300), request_timeout(0), accept_compressed(true) { }
 
 http::request http::client::request(
     http::url       url,

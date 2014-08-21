@@ -516,3 +516,35 @@ CUTE_TEST(
 ) {
     CUTE_ASSERT(http::client().request_timeout == 0);
 }
+
+CUTE_TEST(
+    "Test correct handling of accept_compressed=true",
+    "[http],[request],[accept_compressed],[localhost]"
+) {
+    auto url = LOCALHOST + "echo_headers";
+
+    auto client = http::client();
+    client.accept_compressed = true;
+    auto data = client.request(url).data().get();
+
+    check_result(data, "headers received");
+
+    auto headers_received = data.headers;
+    CUTE_ASSERT(headers_received.count("accept-encoding") > 0);
+}
+
+CUTE_TEST(
+    "Test correct handling of accept_compressed=false",
+    "[http],[request],[accept_compressed],[localhost]"
+) {
+    auto url = LOCALHOST + "echo_headers";
+
+    auto client = http::client();
+    client.accept_compressed = false;
+    auto data = client.request(url).data().get();
+
+    check_result(data, "headers received");
+
+    auto headers_received = data.headers;
+    CUTE_ASSERT(headers_received.count("accept-encoding") == 0);
+}
