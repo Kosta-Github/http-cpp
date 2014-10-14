@@ -71,6 +71,12 @@ set(
     ../3rdParty/HMAC_SHA1/SHA1.h
 )
 
+set(
+    SRC_HTTP_AWS_S3_FILES
+    aws_s3/client.cpp
+    aws_s3/client.hpp
+)
+
 add_library(
     http-cpp SHARED
     ${SRC_HTTP_FILES}
@@ -78,6 +84,7 @@ add_library(
     ${SRC_HTTP_OAUTH1_FILES}
     ${SRC_HTTP_OAUTH1_BASE64_FILES}
     ${SRC_HTTP_OAUTH1_SHA1_FILES}
+    ${SRC_HTTP_AWS_S3_FILES}
 )
 
 source_group(http                    FILES ${SRC_HTTP_FILES})
@@ -85,6 +92,7 @@ source_group(http\\impl              FILES ${SRC_HTTP_IMPL_FILES})
 source_group(http\\oauth1            FILES ${SRC_HTTP_OAUTH1_FILES})
 source_group(http\\oauth1\\base64    FILES ${SRC_HTTP_OAUTH1_BASE64_FILES})
 source_group(http\\oauth1\\HMAC_SHA1 FILES ${SRC_HTTP_OAUTH1_SHA1_FILES})
+source_group(http\\aws_s3            FILES ${SRC_HTTP_AWS_S3_FILES})
 
 if(MSVC)
     target_link_libraries(

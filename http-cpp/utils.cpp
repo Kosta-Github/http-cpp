@@ -25,6 +25,7 @@
 
 #include <cassert>
 #include <cctype>
+#include <algorithm>
 
 static const char HEX[] = "0123456789ABCDEF";
 

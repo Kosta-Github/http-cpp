@@ -163,6 +163,13 @@ std::string http::oauth1::create_signature(
     sign_key += '&';
     sign_key += encode_all(token_secret);
 
+    return create_signature(sig_base, sign_key);
+}
+
+std::string http::oauth1::create_signature(
+    std::string const& sig_base,
+    std::string const& sign_key
+) {
     // create HMAC-SHA1 digest
     auto digest = std::string(CHMAC_SHA1::SHA1_DIGEST_LENGTH, 0x00);
     CHMAC_SHA1 sha1;
