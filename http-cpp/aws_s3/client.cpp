@@ -26,6 +26,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <string.h>
 
 namespace {
     bool starts_with(const char* str, const char* pre) 
