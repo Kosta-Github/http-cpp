@@ -44,6 +44,14 @@ set(
     oauth1_unittests.cpp
 )
 
+set(S3_TEST_URI "" CACHE STRING "Point this variable to a protected s3 test url.")
+if(S3_TEST_URI)
+    set(SRC_UNIT_TEST_FILES ${SRC_UNIT_TEST_FILES} aws_s3_unittests.cpp)
+    add_definitions(
+        -DS3_TEST_URI="${S3_TEST_URI}"
+    )
+endif()
+
 set(
     SRC_NODE_JS_FILES
     server/index.js

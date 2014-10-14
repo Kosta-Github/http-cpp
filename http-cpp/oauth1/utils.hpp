@@ -55,6 +55,11 @@ namespace http {
 
         HTTP_API std::string create_signature(
             std::string const& sig_base,
+            std::string const& secret
+        );
+
+        HTTP_API std::string create_signature(
+            std::string const& sig_base,
             std::string const& consumer_secret,
             std::string const& token_secret
         );
