@@ -51,9 +51,9 @@ set(
 
 set(
     SRC_HTTP_OAUTH1_FILES
-    oauth1/client.cpp
+    oauth1/client_oauth1.cpp
     oauth1/client.hpp
-    oauth1/utils.cpp
+    oauth1/utils_oauth1.cpp
     oauth1/utils.hpp
 )
 

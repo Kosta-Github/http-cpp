@@ -159,6 +159,7 @@ namespace http {
             }
 
             static int debug_stub(CURL* handle, curl_infotype type, const char* msg, size_t bytes, void* userdata) {
+                (void)handle;
                 auto wrap = static_cast<curl_easy_wrap*>(userdata); assert(wrap);
                 auto str = std::string(msg, bytes); // add a terminating zero to the message
                 wrap->debug(static_cast<int>(type), str);

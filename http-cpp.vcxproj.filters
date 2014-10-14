@@ -3,17 +3,38 @@
   <ItemGroup>
     <ClCompile Include="http-cpp\client.cpp" />
     <ClCompile Include="http-cpp\error_code.cpp" />
-    <ClCompile Include="http-cpp\operation.cpp" />
     <ClCompile Include="http-cpp\requests.cpp" />
     <ClCompile Include="http-cpp\status.cpp" />
+    <ClCompile Include="http-cpp\utils.cpp" />
+    <ClCompile Include="http-cpp\oauth1\client_oauth1.cpp">
+      <Filter>oauth1</Filter>
+    </ClCompile>
+    <ClCompile Include="http-cpp\oauth1\utils_oauth1.cpp">
+      <Filter>oauth1</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\base64\base64.cpp">
+      <Filter>oauth1\base64</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\HMAC_SHA1\HMAC_SHA1.cpp">
+      <Filter>oauth1\HMAC_SHA1</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\HMAC_SHA1\SHA1.cpp">
+      <Filter>oauth1\HMAC_SHA1</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="http-cpp\oauth1\client.hpp">
+      <Filter>oauth1</Filter>
+    </ClInclude>
+    <ClInclude Include="http-cpp\oauth1\utils.hpp">
+      <Filter>oauth1</Filter>
+    </ClInclude>
     <ClInclude Include="http-cpp\client.hpp" />
     <ClInclude Include="http-cpp\error_code.hpp" />
+    <ClInclude Include="http-cpp\form_data.hpp" />
     <ClInclude Include="http-cpp\http-cpp.hpp" />
     <ClInclude Include="http-cpp\message.hpp" />
     <ClInclude Include="http-cpp\operation.hpp" />
-    <ClInclude Include="http-cpp\post_data.hpp" />
     <ClInclude Include="http-cpp\progress.hpp" />
     <ClInclude Include="http-cpp\request.hpp" />
     <ClInclude Include="http-cpp\requests.hpp" />
@@ -31,13 +52,31 @@
     <ClInclude Include="http-cpp\impl\curl_share_wrap.hpp">
       <Filter>impl</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="http-cpp\CMakeLists.txt" />
+    <ClInclude Include="3rdParty\base64\base64.h">
+      <Filter>oauth1\base64</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdParty\HMAC_SHA1\HMAC_SHA1.h">
+      <Filter>oauth1\HMAC_SHA1</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdParty\HMAC_SHA1\SHA1.h">
+      <Filter>oauth1\HMAC_SHA1</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="impl">
       <UniqueIdentifier>{acec254a-539d-4298-b5fd-75b5cd0c4c8f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="oauth1">
+      <UniqueIdentifier>{74e2feed-e791-4212-84fd-e30f17a77442}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="oauth1\base64">
+      <UniqueIdentifier>{76898fb5-9749-4629-ad44-35696fff9e0a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="oauth1\HMAC_SHA1">
+      <UniqueIdentifier>{f3b9aae0-4351-42d0-871b-f9ade1e4b7a4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="http-cpp\CMakeLists.txt" />
   </ItemGroup>
 </Project>
