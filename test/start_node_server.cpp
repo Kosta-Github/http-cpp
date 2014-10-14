@@ -36,7 +36,7 @@ std::shared_ptr<std::thread> start_node_server() {
     const std::string node_start_request = node_base_url + "start";
     const std::string node_stop_request  = node_base_url + "stop";
 
-    std::string command = NODE_EXE " \"" NODE_SERVER_JS "\"";
+    std::string command = "\"\"" NODE_EXE "\" \"" NODE_SERVER_JS "\"\"";
 #if defined(WIN32)
     std::replace(command.begin(), command.end(), '/', '\\');
 #endif // defined(WIN32)
