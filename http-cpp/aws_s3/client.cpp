@@ -23,21 +23,24 @@
 
 #include "./client.hpp"
 #include "../oauth1/utils.hpp"
+
 #include <ctime>
-#include <iomanip>
-#include <iostream>
-#include <string.h>
+#include <cstring>
 
 namespace {
-    bool starts_with(const char* str, const char* pre) 
-    {
-        size_t lenpre = strlen(pre);
-        size_t lenstr = strlen(str);
-        return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
+
+    const char* const HTTP_PREFIX  = "http://s3.amazonaws.com/";
+    const char* const HTTPS_PREFIX = "https://s3.amazonaws.com/";
+
+    bool starts_with(const char* str, const char* pre) {
+        assert(str);
+        assert(pre);
+
+        const auto lenStr = std::strlen(str);
+        const auto lenPre = std::strlen(pre);
+        return ((lenStr >= lenPre) && (std::strncmp(pre, str, lenPre) == 0));
     }
 
-    const char* const HTTP_PREFIX = "http://s3.amazonaws.com/";
-    const char* const HTTPS_PREFIX = "https://s3.amazonaws.com/";
 }
 
 http::request http::aws_s3::client::request(
@@ -46,46 +49,42 @@ http::request http::aws_s3::client::request(
 ) {
     // TODO implement virtual host names (https://mybucket.s3.amazonaws.com/)
     assert(starts_with(url.c_str(), HTTP_PREFIX) || starts_with(url.c_str(), HTTPS_PREFIX));
+    const auto isHttps = starts_with(url.c_str(), HTTPS_PREFIX);
 
     // others need implementation :)
     assert(op == http::OP_GET());
 
     // bypass standard HTTP date header set by CuRL later on
-    std::time_t t = std::time(nullptr);
-    std::tm tm = *std::gmtime(&t);    
+    auto t  = std::time(nullptr);
+    auto tm = *std::gmtime(&t);
     char dateBuf[64];
-    strftime(dateBuf, sizeof(dateBuf), "%a, %d %b %Y %H:%M:%S GMT", &tm);
-    headers["X-Amz-Date"] = dateBuf;
+    std::strftime(dateBuf, sizeof(dateBuf), "%a, %d %b %Y %H:%M:%S GMT", &tm);
+    headers["x-amz-date"] = dateBuf;
 
-    
-    std::string httpVerb = "GET";
-    std::string contentMD5 = "";
-    std::string contentType = "";
+    std::string httpVerb = op;
+    std::string contentMD5;
+    std::string contentType;
 
     std::string canonicalizedAmzHeaders;
-    for(auto&& header : headers)
-    {
-        if(starts_with(header.first.c_str(), "X-Amz-"))
-        {
-            std::string key = http::to_lower(header.first);
+    for(auto&& header : headers) {
+        const auto key = http::to_lower(header.first);
+        if(starts_with(key.c_str(), "x-amz-")) {
             canonicalizedAmzHeaders += key + ":" + header.second + "\n";
         }
     }
 
-    std::string canonicalizedResource = url.substr(
-        (starts_with(url.c_str(), HTTP_PREFIX) ? strlen(HTTP_PREFIX) : strlen(HTTPS_PREFIX)) - 1
-    );
+    const auto canonicalizedResource = url.substr(std::strlen(isHttps ? HTTPS_PREFIX : HTTP_PREFIX) - 1);
 
-    std::string stringToSign = 
-        httpVerb + "\n" +
-        contentMD5 + "\n" +
-        contentType + "\n" +
-        /*Date +*/ "\n" + // we are using X-Amz-Date instead
+    const auto stringToSign = 
+        httpVerb                + "\n" +
+        contentMD5              + "\n" +
+        contentType             + "\n" +
+        /*Date                  +*/ "\n" + // we are using "x-amz-date" instead
         canonicalizedAmzHeaders +
         canonicalizedResource;
 
-    std::string signature = http::oauth1::create_signature(stringToSign, aws_secret_key);
-    headers["Authorization"] = "AWS " + aws_access_key_id + ":" + signature;
+    const auto signature = http::oauth1::create_signature(stringToSign, aws_secret_key);
+    headers["authorization"] = "AWS " + aws_access_key_id + ":" + signature;
 
     return http::client::request(std::move(url), std::move(op));
 }
