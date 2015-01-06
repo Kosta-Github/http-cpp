@@ -44,31 +44,28 @@ static const char* const OAUTH_TIMESTAMP        = "oauth_timestamp";
 static const char* const AUTH_HEADER_FIELD      = "Authorization";
 static const char* const AUTH_HEADER_PREFIX     = "OAuth ";
 
+static const char        NONCE_CHARS[]          = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+static const int         NONCE_CHARS_COUNT      = sizeof(NONCE_CHARS) - 1;
+
 std::string http::oauth1::create_timestamp() {
     return std::to_string(std::time(nullptr));
 }
 
-// needs to be improved!!!
 std::string http::oauth1::create_nonce() {
-    std::string random_values(32, '\0');
+    std::string nonce(32, '\0');
 
     {   // need to protect the static state with a mutex
         static std::mutex s_mutex;
         std::lock_guard<std::mutex> lock(s_mutex);
 
         static std::mt19937 eng;
-        static std::uniform_int_distribution<char> dist;
-        static auto random_gen = [&]() { return dist(eng); };
+        static std::uniform_int_distribution<> dist(0, NONCE_CHARS_COUNT - 1); // lower bound and upper bound are inclusive!
+        static auto random_char = [&]() -> char { return NONCE_CHARS[dist(eng)]; };
 
-        std::generate(random_values.begin(), random_values.end(), random_gen);
+        std::generate(nonce.begin(), nonce.end(), random_char);
     }
 
-    auto random_base64 = base64_encode(
-        reinterpret_cast<const unsigned char*>(random_values.c_str()),
-        static_cast<unsigned int>(random_values.size())
-    );
-
-    return http::encode_all(random_base64);
+    return nonce;
 }
 
 http::parameters http::oauth1::create_oauth_parameters(
