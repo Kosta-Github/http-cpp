@@ -30,6 +30,7 @@
 #include <ctime>
 #include <mutex>
 #include <random>
+#include <sstream>
 
 // based on this description: https://dev.twitter.com/docs/auth/creating-signature
 
@@ -50,7 +51,10 @@ std::string http::oauth1::create_timestamp() {
 
 // needs to be improved!!!
 std::string http::oauth1::create_nonce() {
-    std::string random_values(32, '\0');
+    std::string random_values(10, '\0');
+
+	std::ostringstream oss;
+	oss << std::hex;
 
     {   // need to protect the static state with a mutex
         static std::mutex s_mutex;
@@ -63,12 +67,8 @@ std::string http::oauth1::create_nonce() {
         std::generate(random_values.begin(), random_values.end(), random_gen);
     }
 
-    auto random_base64 = base64_encode(
-        reinterpret_cast<const unsigned char*>(random_values.c_str()),
-        static_cast<unsigned int>(random_values.size())
-    );
-
-    return http::encode_all(random_base64);
+	std::copy(random_values.begin(), random_values.end(), std::ostream_iterator<unsigned int>(oss, ""));
+	return oss.str();
 }
 
 http::parameters http::oauth1::create_oauth_parameters(
