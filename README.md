@@ -1,4 +1,4 @@
-http-cpp [![Build Status](https://travis-ci.org/Kosta-Github/http-cpp.png)](https://travis-ci.org/Kosta-Github/http-cpp) [![Coverity Scan](https://scan.coverity.com/projects/1344/badge.svg)](https://scan.coverity.com/projects/1344)
+http-cpp [![Build Status Travis](https://travis-ci.org/Kosta-Github/http-cpp.png)](https://travis-ci.org/Kosta-Github/http-cpp) [![Coverity Scan](https://scan.coverity.com/projects/1344/badge.svg)](https://scan.coverity.com/projects/1344) [![Build status AppVeyor](https://ci.appveyor.com/api/projects/status/6is9qo2njtro850d/branch/master?svg=true)](https://ci.appveyor.com/project/Kosta-Github/http-cpp/branch/master)
 ========
 Provide a very simple, thread-safe, and portable interface to do async HTTP requests in C++11.
 
