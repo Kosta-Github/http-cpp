@@ -16,7 +16,7 @@ include_directories(.)
 
 # Oleg [2014-11-19]
 # Disable unit tests on OSX since they are failing on some machines
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     # configure unit tests
     enable_testing()
 endif()
