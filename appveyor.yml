@@ -15,5 +15,4 @@ build:
   verbosity: minimal
 
 test_script:
-- cd Build
-- ctest -VV -C %CONFIGURATION%
+- cd Build && ctest --verbose --timeout 120 --build-config %CONFIGURATION%
