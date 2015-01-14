@@ -1,0 +1,19 @@
+version: 1.0.{build}
+
+configuration:
+- Debug
+- Release
+
+platform: x64
+
+before_build:
+- config-win64.bat
+
+build:
+  project: Build\http-cpp.sln
+  parallel: true
+  verbosity: minimal
+
+test_script:
+- cd Build
+- ctest -VV -C %CONFIGURATION%
