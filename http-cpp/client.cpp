@@ -41,6 +41,23 @@
 
 namespace {
 
+#ifdef WIN32
+    static inline std::wstring Utf8ToW(const std::string& str)
+    {
+        std::wstring wstr;
+        wstr.resize(str.size());
+        int charsWritten = ::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], str.size());
+        if (charsWritten == 0) 
+        {
+            return L"";
+        }
+        else 
+        {
+            return wstr;
+        }
+    }
+#endif
+
     static inline std::shared_ptr<FILE> open_file(
         std::string const& filename,
         const char* const flags
@@ -48,7 +65,11 @@ namespace {
         assert(!filename.empty());
 
         std::shared_ptr<FILE> file(
-            std::fopen(filename.c_str(), flags),
+#ifdef WIN32
+            _wfopen(Utf8ToW(filename).c_str(), Utf8ToW(flags).c_str()),
+#else
+			std::fopen(filename.c_str(), flags),
+#endif
             [](FILE* f) { if(f) { std::fclose(f); } }
         );
 
