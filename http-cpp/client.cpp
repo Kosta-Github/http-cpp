@@ -44,9 +44,13 @@ namespace {
 #ifdef WIN32
     static inline std::wstring Utf8ToW(const std::string& str)
     {
+        assert(str.size() < INT_MAX);
+        int charCount = (int)str.size();
+
         std::wstring wstr;
-        wstr.resize(str.size());
-        int charsWritten = ::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], str.size());
+        wstr.resize(charCount);
+
+        int charsWritten = ::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], charCount);
         if (charsWritten == 0) 
         {
             return L"";
