@@ -51,14 +51,9 @@ namespace {
         wstr.resize(charCount);
 
         int charsWritten = ::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], charCount);
-        if (charsWritten == 0) 
-        {
-            return L"";
-        }
-        else 
-        {
-            return wstr;
-        }
+        assert(charsWritten != 0);
+
+        return wstr;
     }
 #endif
 
@@ -72,7 +67,7 @@ namespace {
 #ifdef WIN32
             _wfopen(Utf8ToW(filename).c_str(), Utf8ToW(flags).c_str()),
 #else
-			std::fopen(filename.c_str(), flags),
+            std::fopen(filename.c_str(), flags),
 #endif
             [](FILE* f) { if(f) { std::fclose(f); } }
         );
