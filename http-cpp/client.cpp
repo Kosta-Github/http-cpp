@@ -45,7 +45,7 @@ namespace {
     static inline std::wstring Utf8ToW(const std::string& str)
     {
         assert(str.size() < INT_MAX);
-        int charCount = (int)str.size();
+        int charCount = (int)str.size() + 1;
 
         std::wstring wstr;
         wstr.resize(charCount);
