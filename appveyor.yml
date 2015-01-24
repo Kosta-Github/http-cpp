@@ -2,7 +2,7 @@ version: 1.0.{build}
 
 configuration:
 - Debug
-# - Release
+- Release
 
 platform: x64
 
