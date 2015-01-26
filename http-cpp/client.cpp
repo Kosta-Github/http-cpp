@@ -42,7 +42,7 @@
 namespace {
 
 #if defined(WIN32)
-    static inline std::wstring Utf8ToW(std::string& const str) {
+    static inline std::wstring Utf8ToW(std::string const& str) {
         assert(str.size() < INT_MAX);
 	
         if(str.empty()) { return L""; }
