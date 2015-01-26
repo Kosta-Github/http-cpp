@@ -78,7 +78,7 @@ set(
 )
 
 add_library(
-    http-cpp SHARED
+    http-cpp
     ${SRC_HTTP_FILES}
     ${SRC_HTTP_IMPL_FILES}
     ${SRC_HTTP_OAUTH1_FILES}
