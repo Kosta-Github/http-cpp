@@ -41,34 +41,39 @@
 
 namespace {
 
-#ifdef WIN32
-    static inline std::wstring Utf8ToW(const std::string& str)
-    {
+#if defined(WIN32)
+    static inline std::wstring Utf8ToW(std::string& const str) {
         assert(str.size() < INT_MAX);
-        int charCount = (int)str.size() + 1;
-
+	
+        if(str.empty()) { return L""; }
+		
+        const auto charCount = static_cast<int>(str.size() + 1);
         std::wstring wstr;
         wstr.resize(charCount);
 
-        int charsWritten = ::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], charCount);
-        assert(charsWritten != 0);
+        const auto charsWritten = ::MultiByteToWideChar(
+		    CP_UTF8, 0, str.c_str(), -1, &wstr[0], charCount
+	    );
+        assert(charsWritten > 0);
+		wstr.resize(charsWritten - 1); // charsWritten include the terminating zero char...
 
         return wstr;
     }
-#endif
+#endif // defined(WIN32)
 
     static inline std::shared_ptr<FILE> open_file(
         std::string const& filename,
         const char* const flags
     ) {
         assert(!filename.empty());
+		assert(flags);
 
         std::shared_ptr<FILE> file(
-#ifdef WIN32
+#if defined(WIN32)
             _wfopen(Utf8ToW(filename).c_str(), Utf8ToW(flags).c_str()),
-#else
+#else // defined(WIN32)
             std::fopen(filename.c_str(), flags),
-#endif
+#endif // defined(WIN32)
             [](FILE* f) { if(f) { std::fclose(f); } }
         );
 
