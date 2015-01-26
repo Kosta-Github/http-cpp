@@ -15,4 +15,4 @@ build:
   verbosity: minimal
 
 test_script:
-- Build\bin\%CONFIGURATION%\http_unittests.exe
+- cd Build && ctest --verbose --timeout 120 --build-config %CONFIGURATION%
