@@ -77,6 +77,15 @@ set(
     aws_s3/client.hpp
 )
 
+if(MSVC)
+    set(
+	    SRC_HTTP_RESOURCE_FILES
+	    resource.rc
+    )
+else(MSVC)
+    set (SRC_HTTP_RESOURCE_FILES)
+endif(MSVC)
+	
 add_library(
     http-cpp SHARED
     ${SRC_HTTP_FILES}
@@ -85,6 +94,7 @@ add_library(
     ${SRC_HTTP_OAUTH1_BASE64_FILES}
     ${SRC_HTTP_OAUTH1_SHA1_FILES}
     ${SRC_HTTP_AWS_S3_FILES}
+    ${SRC_HTTP_RESOURCE_FILES}
 )
 
 source_group(http                    FILES ${SRC_HTTP_FILES})
@@ -93,6 +103,7 @@ source_group(http\\oauth1            FILES ${SRC_HTTP_OAUTH1_FILES})
 source_group(http\\oauth1\\base64    FILES ${SRC_HTTP_OAUTH1_BASE64_FILES})
 source_group(http\\oauth1\\HMAC_SHA1 FILES ${SRC_HTTP_OAUTH1_SHA1_FILES})
 source_group(http\\aws_s3            FILES ${SRC_HTTP_AWS_S3_FILES})
+source_group(http\\resource          FILES ${SRC_HTTP_RESOURCE_FILES})
 
 if(MSVC)
     target_link_libraries(
