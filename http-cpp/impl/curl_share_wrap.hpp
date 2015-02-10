@@ -32,7 +32,7 @@ namespace http {
 
         struct curl_share_wrap {
             curl_share_wrap() :
-            m_share(curl_share_init())
+                m_share(curl_share_init())
             {
                 assert(m_share);
                 curl_share_setopt(m_share, CURLSHOPT_LOCKFUNC,   lock_function_stub);

@@ -71,7 +71,7 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_SSLVERSION,            CURL_SSLVERSION_TLSv1); // explicitly disable SSLv3 and below; only allow TLSv1.x
 #if (LIBCURL_VERSION_NUM >= 0x072400) // >= 7.36.0
                 curl_easy_setopt(handle, CURLOPT_SSL_ENABLE_NPN,        0); // disable NPN support (use ALPN instead); see:http://blog.chromium.org/2015/02/hello-http2-goodbye-spdy-http-is_9.html
-#endif // (LIBCURL_VERSION_NUM >= 0x073600)
+#endif // (LIBCURL_VERSION_NUM >= 0x072400)
             }
 
             void set_callbacks() {
