@@ -63,14 +63,15 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_HTTP_CONTENT_DECODING, 1);
                 curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION,        1);
                 curl_easy_setopt(handle, CURLOPT_MAXREDIRS,             5); // max 5 redirects
-#if (LIBCURL_VERSION_NUM >= 0x071900)
+#if (LIBCURL_VERSION_NUM >= 0x071900) // >= 7.25.0
                 curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE,         1);
 #endif // (LIBCURL_VERSION_NUM >= 0x071900)
                 curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,           error_buffer);
 
-                // SSL related defaults
                 curl_easy_setopt(handle, CURLOPT_SSLVERSION,            CURL_SSLVERSION_TLSv1); // explicitly disable SSLv3 and below; only allow TLSv1.x
+#if (LIBCURL_VERSION_NUM >= 0x072400) // >= 7.36.0
                 curl_easy_setopt(handle, CURLOPT_SSL_ENABLE_NPN,        0); // disable NPN support (use ALPN instead); see:http://blog.chromium.org/2015/02/hello-http2-goodbye-spdy-http-is_9.html
+#endif // (LIBCURL_VERSION_NUM >= 0x073600)
             }
 
             void set_callbacks() {
@@ -86,7 +87,7 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION,     debug_stub);
                 curl_easy_setopt(handle, CURLOPT_DEBUGDATA,         this);
 
-#if (LIBCURL_VERSION_NUM >= 0x072000)
+#if (LIBCURL_VERSION_NUM >= 0x072000) // >= 7.32.0
                 curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION,  progress_stub);
                 curl_easy_setopt(handle, CURLOPT_XFERINFODATA,      this);
 #else // (LIBCURL_VERSION_NUM >= 0x072000)
@@ -170,7 +171,7 @@ namespace http {
                 return 0;
             }
 
-#if (LIBCURL_VERSION_NUM >= 0x072000)
+#if (LIBCURL_VERSION_NUM >= 0x072000) // >= 7.32.0
             static int progress_stub(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
 #else // (LIBCURL_VERSION_NUM >= 0x072000)
             static int progress_stub(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
