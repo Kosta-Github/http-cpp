@@ -56,7 +56,7 @@ namespace http {
 
         public:
             void set_default_values() {
-//                curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
+//                curl_easy_setopt(handle, CURLOPT_VERBOSE,               1);
 
                 curl_easy_setopt(handle, CURLOPT_AUTOREFERER,           1);
                 curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING,       ""); // accept all supported encodings
@@ -67,6 +67,10 @@ namespace http {
                 curl_easy_setopt(handle, CURLOPT_TCP_KEEPALIVE,         1);
 #endif // (LIBCURL_VERSION_NUM >= 0x071900)
                 curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,           error_buffer);
+
+                // SSL related defaults
+                curl_easy_setopt(handle, CURLOPT_SSLVERSION,            CURL_SSLVERSION_TLSv1); // explicitly disable SSLv3 and below; only allow TLSv1.x
+                curl_easy_setopt(handle, CURLOPT_SSL_ENABLE_NPN,        0); // disable NPN support (use ALPN instead); see:http://blog.chromium.org/2015/02/hello-http2-goodbye-spdy-http-is_9.html
             }
 
             void set_callbacks() {
