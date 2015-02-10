@@ -79,11 +79,9 @@ set(
 
 if(MSVC)
     set(
-	    SRC_HTTP_RESOURCE_FILES
-	    resource.rc
+        SRC_HTTP_RESOURCE_FILES
+        resource.rc
     )
-else(MSVC)
-    set (SRC_HTTP_RESOURCE_FILES)
 endif(MSVC)
 	
 add_library(
