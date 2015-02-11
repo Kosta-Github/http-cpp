@@ -30,7 +30,8 @@
 CUTE_INIT(); // initialize the cute framework
 
 int main(int argc, char* argv[]) {
-    auto node = start_node_server();
+    // start the dummy node.js server
+    auto node_server = start_node_server();
 
     // create the test suite execution context
     auto context = cute::context();
@@ -41,7 +42,12 @@ int main(int argc, char* argv[]) {
     // run the test suite
     auto results = context.run();
 
+    // cancel all potentially outstanding requests
     http::client::cancel_all();
+
+    // shutdown the node.js server via a final HTTP GET call
+    node_server = nullptr;
+    http::client::wait_for_all();
 
     // print out the test suite result summary
     cute::reporter_ide_summary(results);

@@ -79,15 +79,13 @@ set(
 
 if(MSVC)
     set(
-	    SRC_HTTP_RESOURCE_FILES
-	    resource.rc
+        SRC_HTTP_RESOURCE_FILES
+        resource.rc
     )
-else(MSVC)
-    set (SRC_HTTP_RESOURCE_FILES)
 endif(MSVC)
 	
 add_library(
-    http-cpp SHARED
+    http-cpp
     ${SRC_HTTP_FILES}
     ${SRC_HTTP_IMPL_FILES}
     ${SRC_HTTP_OAUTH1_FILES}

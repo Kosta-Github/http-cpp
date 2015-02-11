@@ -48,10 +48,8 @@ namespace http {
                 assert(m_active_handles.empty());
 
                 assert(m_multi);
-#if defined(WIN32) && defined(NDEBUG)
-                // this cleanup call seems to be defect on Windows in debug mode => ignore it for now
-                if(m_multi) { curl_multi_cleanup(m_multi); }
-#endif // defined(WIN32) && defined(NDEBUG)
+// TODO: this cleanup call seems to be defect on Windows => ignore it for now
+//                if(m_multi) { curl_multi_cleanup(m_multi); }
             }
 
             void wait_for_all() {
