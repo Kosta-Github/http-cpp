@@ -26,7 +26,7 @@ const std::string& body = reply.get().body; // retrieve the reply body
 
 external dependencies
 =====================
-- [curl](http://curl.haxx.se/)
+- [curl](http://curl.haxx.se/): currently using version `7.41.0` for `Windows` builds
 - [HMAC_SHA1](http://www.codeproject.com/KB/recipes/HMACSHA1class.aspx): `HMAC_SHA1` library for `OAuth1` support
 - [base64](http://www.adp-gmbh.ch/cpp/common/base64.html): `Base64` library for `OAuth1` support
 - [cmake](http://cmake.org): for the build system
