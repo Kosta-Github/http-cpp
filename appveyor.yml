@@ -12,7 +12,7 @@ platform:
 - x64
 
 before_build:
-- config-win64.bat
+- config-VS2012-win64.bat
 
 build:
   project: Build\http-cpp.sln
