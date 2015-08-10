@@ -157,7 +157,7 @@ CUTE_TEST(
     "Test a request to a non-existing hostname",
     "[http],[request],[invalid-hostname]"
 ) {
-    auto url = "http://abc.xyz/";
+    auto url = "http://non-existing.http-cpp/";
     auto data = http::client().request(url).data().get();
 
     CUTE_ASSERT(data.error_code > 0, CUTE_CAPTURE(http::to_string(data.error_code)));
