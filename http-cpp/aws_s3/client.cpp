@@ -56,9 +56,8 @@ http::request http::aws_s3::client::request(
 
     // bypass standard HTTP date header set by CuRL later on
     auto t  = std::time(nullptr);
-    auto tm = *std::gmtime(&t);
     char dateBuf[64];
-    std::strftime(dateBuf, sizeof(dateBuf), "%a, %d %b %Y %H:%M:%S GMT", &tm);
+    std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%dT%H%M%SZ", std::gmtime(&t));
     headers["x-amz-date"] = dateBuf;
 
     std::string httpVerb = op;
