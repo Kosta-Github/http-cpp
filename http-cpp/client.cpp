@@ -90,12 +90,12 @@ namespace {
         }
 #elif defined(__APPLE__)
         struct stat s;
-        if(stat(filename.c_str(), &s) == -1) {
+        if(stat(filename.c_str(), &s) != -1) {
             return static_cast<int64_t>(s.st_size);
         }
 #else
         struct stat64 s;
-        if(stat64(filename.c_str(), &s) == -1) {
+        if(stat64(filename.c_str(), &s) != -1) {
             return static_cast<int64_t>(s.st_size);
         }
 #endif
